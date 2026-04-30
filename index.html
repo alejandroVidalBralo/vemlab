@@ -3,176 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador Dinámico Motor | Inercia + Eficiencia</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <meta name="description" content="VEMLAB - Simulador interactivo de máquinas eléctricas con desafíos para estudiantes de ingeniería. Motor asíncrono, síncrono, DC y transformador.">
+    <title>VEMLAB | Laboratorio Virtual de Máquinas Eléctricas</title>
+    <link rel="stylesheet" href="css/main.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <style>
-        :root {
-            --primary: #6366f1; 
-            --secondary: #10b981;
-            --accent: #f59e0b;
-            --danger: #ef4444;
-            --bg: #0f172a;
-            --card-bg: #1e293b;
-            --text: #e2e8f0;
-            --text-muted: #94a3b8;
-            --input-bg: #334155;
-            --border: #475569;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); padding: 20px; }
-        
-        .container { display: grid; grid-template-columns: 320px 1fr; gap: 20px; max-width: 1500px; margin: 0 auto; }
-        @media (max-width: 1024px) { .container { grid-template-columns: 1fr; } }
-
-        .card { background: var(--card-bg); border-radius: 12px; padding: 1.2rem; border: 1px solid var(--border); margin-bottom: 15px; }
-        h2 { font-size: 1.1rem; color: var(--primary); margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-
-        .input-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0.8rem; }
-        label { display: block; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
-        input[type="number"], select { width: 100%; background: var(--input-bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 4px; font-size: 0.9rem; }
-
-        /* Mode Switch */
-        .mode-switch { display: flex; background: var(--input-bg); border-radius: 6px; padding: 3px; margin-bottom: 15px; }
-        .mode-option { flex: 1; text-align: center; padding: 6px; font-size: 0.8rem; cursor: pointer; border-radius: 4px; color: var(--text-muted); transition: 0.2s; }
-        .mode-option.active { background: var(--primary); color: white; font-weight: 600; }
-        
-        .control-section { display: none; }
-        .control-section.active { display: block; animation: fadeIn 0.3s; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        /* KPIs */
-        .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-bottom: 15px; }
-        .kpi-box { background: rgba(99, 102, 241, 0.05); padding: 10px; border-radius: 8px; text-align: center; border: 1px solid rgba(99, 102, 241, 0.1); }
-        .kpi-value { font-size: 1.2rem; font-weight: 600; color: var(--primary); }
-        .kpi-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-
-        /* Layout Simulación */
-        .sim-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 15px; }
-        
-        /* VISTA OSCILOSCOPIO vs CIRCUITO */
-        .view-container {
-            position: relative;
-            width: 100%;
-            height: 300px;
-            background: #000;
-            border-radius: 8px;
-            border: 1px solid #333;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
-            overflow: hidden;
-        }
-
-        canvas#scopeCanvas { width: 100%; height: 100%; display: block; }
-        
-        #circuitView {
-            display: none; /* Oculto por defecto */
-            width: 100%;
-            height: 100%;
-            background: #1e293b; /* Fondo azul oscuro */
-            position: relative;
-            padding: 10px;
-        }
-
-        /* Estilos Texto SVG */
-        .circuit-text { font-family: 'Inter', sans-serif; font-size: 10px; fill: #94a3b8; }
-        .circuit-val { font-family: 'monospace'; font-size: 11px; font-weight: bold; fill: #e2e8f0; }
-        .power-active { fill: #ef4444; } /* Rojo para Watts (Calor) */
-        .power-reactive { fill: #f59e0b; } /* Amarillo para VARs */
-        .power-mech { fill: #10b981; } /* Verde para Mecánica */
-
-        .gauge-container { background: var(--input-bg); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        
-        /* Slider styles */
-        .slider-box { margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; }
-        input[type=range] { width: 100%; margin: 10px 0; accent-color: var(--primary); cursor: pointer; }
-        .range-val { float: right; font-weight: bold; color: var(--secondary); }
-
-        /* Status Indicators */
-        .status-tag { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-top: 5px; }
-        .st-run { background: rgba(16, 185, 129, 0.2); color: #10b981; }
-        .st-stall { background: rgba(239, 68, 68, 0.2); color: #ef4444; animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0.5; } }
-
-        /* Botones */
-        .btn-apply {
-            width: 100%;
-            background-color: var(--secondary);
-            color: #0f172a;
-            font-weight: bold;
-            border: none;
-            padding: 10px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            margin-top: 10px;
-        }
-        .btn-apply:hover { filter: brightness(1.1); }
-        .btn-toggle {
-            background: transparent;
-            border: 1px solid var(--primary);
-            color: var(--primary);
-            padding: 4px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            margin-right: 10px;
-        }
-        .btn-toggle:hover { background: rgba(99, 102, 241, 0.1); }
-        .blink-success { animation: successFlash 0.5s ease-out; }
-        @keyframes successFlash { 0% { background-color: #fff; } 100% { background-color: var(--secondary); } }
-
-    </style>
 </head>
 <body>
 
-    <div class="container">
-        <aside>
-            <header style="margin-bottom: 20px;">
-                <h1 style="font-size: 1.4rem; color: var(--text);">⚡ Motor Asíncrono</h1>
-                <p style="font-size: 0.8rem; color: var(--text-muted);">Simulación Dinámica en Tiempo Real</p>
-            </header>
+    <!-- ============================================
+         TOP NAVIGATION
+         ============================================ -->
+    <nav class="top-nav">
+        <div style="display:flex; align-items:center;">
+            <div class="logo">⚡ VEMLAB</div>
+            <span class="logo-sub">Laboratorio Virtual</span>
+        </div>
+        <div class="machine-tabs">
+            <button class="machine-tab active" id="tab-async">Motor Asíncrono</button>
+            <button class="machine-tab disabled" title="Próximamente">Motor Síncrono</button>
+            <button class="machine-tab disabled" title="Próximamente">Motor DC</button>
+            <button class="machine-tab disabled" title="Próximamente">Transformador</button>
+        </div>
+    </nav>
 
+    <!-- ============================================
+         APP LAYOUT
+         ============================================ -->
+    <div class="app-layout">
+
+        <!-- ======== SIDEBAR ======== -->
+        <aside class="sidebar">
+
+            <!-- Motor Parameters -->
             <div class="card">
-                <h2>Parámetros del Motor (Modelo T)</h2>
-                <div class="input-group">
-                    <div><label>V Línea (V)</label><input type="number" class="motor-input" id="v_line" value="400"></div>
-                    <div><label>Frec (Hz)</label><input type="number" class="motor-input" id="freq" value="50"></div>
+                <div class="card-header">
+                    <div class="card-title"><span class="icon">⚙️</span> Parámetros del Motor (Modelo T)</div>
                 </div>
-                <div class="input-group">
-                    <div><label>Polos</label><input type="number" class="motor-input" id="poles" value="4"></div>
-                    <div><label>Inercia J (kg·m²)</label><input type="number" class="motor-input" id="inertia" value="0.2" step="0.05"></div>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label>V Línea (V)</label>
+                        <input type="number" class="motor-input" id="v_line" value="400">
+                    </div>
+                    <div class="input-group">
+                        <label>Frec (Hz)</label>
+                        <input type="number" class="motor-input" id="freq" value="50">
+                    </div>
                 </div>
-                <hr style="border-color: var(--border); margin: 10px 0;">
-                <div class="input-group">
-                    <div><label>R1 (Estator)</label><input type="number" class="motor-input" id="r1" value="0.641"></div>
-                    <div><label>X1 (Estator)</label><input type="number" class="motor-input" id="x1" value="1.106"></div>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label>Polos</label>
+                        <input type="number" class="motor-input" id="poles" value="4">
+                    </div>
+                    <div class="input-group">
+                        <label>Inercia J (kg·m²)</label>
+                        <input type="number" class="motor-input" id="inertia" value="0.2" step="0.05">
+                    </div>
                 </div>
-                <div class="input-group">
-                    <div><label>R2' (Rotor)</label><input type="number" class="motor-input" id="r2" value="0.332"></div>
-                    <div><label>X2' (Rotor)</label><input type="number" class="motor-input" id="x2" value="0.464"></div>
+                <hr class="divider">
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label>R1 (Estator)</label>
+                        <input type="number" class="motor-input" id="r1" value="0.641">
+                    </div>
+                    <div class="input-group">
+                        <label>X1 (Estator)</label>
+                        <input type="number" class="motor-input" id="x1" value="1.106">
+                    </div>
                 </div>
-                <div class="input-group">
-                    <div><label>Rc (Pérd. Hierro)</label><input type="number" class="motor-input" id="rc" value="800"></div>
-                    <div><label>Xm (Mag.)</label><input type="number" class="motor-input" id="xm" value="26.3"></div>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label>R2' (Rotor)</label>
+                        <input type="number" class="motor-input" id="r2" value="0.332">
+                    </div>
+                    <div class="input-group">
+                        <label>X2' (Rotor)</label>
+                        <input type="number" class="motor-input" id="x2" value="0.464">
+                    </div>
                 </div>
-                
-                <button id="btnApply" class="btn-apply" onclick="applyMotorChanges()">✅ Aplicar Parámetros (Enter)</button>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label>Rc (Pérd. Hierro)</label>
+                        <input type="number" class="motor-input" id="rc" value="800">
+                    </div>
+                    <div class="input-group">
+                        <label>Xm (Mag.)</label>
+                        <input type="number" class="motor-input" id="xm" value="26.3">
+                    </div>
+                </div>
+                <button id="btnApply" class="btn btn-primary" onclick="VEMLAB.App.applyMotorChanges()">✅ Aplicar Parámetros (Enter)</button>
             </div>
 
-            <div class="card" style="border: 1px solid var(--primary);">
-                <h2>Control y Carga</h2>
-                
-                <div class="mode-switch">
-                    <div class="mode-option active" onclick="setMode('auto')" id="btn-auto">Dinámico (Auto)</div>
-                    <div class="mode-option" onclick="setMode('manual')" id="btn-manual">Forzar Slip</div>
+            <!-- Control & Load -->
+            <div class="card" style="border-color: rgba(99,102,241,0.25);">
+                <div class="card-header">
+                    <div class="card-title"><span class="icon">🎛️</span> Control y Carga</div>
                 </div>
 
+                <div class="mode-switch">
+                    <div class="mode-option active" onclick="VEMLAB.App.setMode('auto')" id="btn-auto">Dinámico (Auto)</div>
+                    <div class="mode-option" onclick="VEMLAB.App.setMode('manual')" id="btn-manual">Forzar Slip</div>
+                </div>
+
+                <!-- Auto Mode -->
                 <div id="ctrl-auto" class="control-section active">
-                    <div style="margin-bottom: 10px;">
+                    <div class="input-group" style="margin-bottom:10px;">
                         <label>Tipo de Carga</label>
                         <select id="load_type">
                             <option value="quadratic">Ventilador (k·ω²)</option>
@@ -182,25 +116,35 @@
                     </div>
 
                     <div class="slider-box">
-                        <label>Nivel de Carga (Nm base) <span id="load_disp" class="range-val">50</span></label>
+                        <div class="slider-label">
+                            <span>Nivel de Carga (Nm base)</span>
+                            <span id="load_disp" class="slider-value">50</span>
+                        </div>
                         <input type="range" id="load_slider" min="0" max="500" value="50">
-                        <p style="font-size: 0.7rem; color: var(--text-muted);">Carga aplicada al eje.</p>
+                        <div class="slider-hint">Carga aplicada al eje del motor.</div>
                     </div>
 
-                    <div class="slider-box" style="border: 1px solid var(--accent);">
-                        <label style="color: var(--accent);">Reostato Arranque (Ω) <span id="rext_disp" class="range-val">0.00</span></label>
+                    <div class="slider-box accent">
+                        <div class="slider-label">
+                            <span style="color: var(--accent);">Reóstato Arranque (Ω)</span>
+                            <span id="rext_disp" class="slider-value" style="color:var(--accent);">0.00</span>
+                        </div>
                         <input type="range" id="rext_slider" min="0" max="10" step="0.1" value="0">
-                        <p style="font-size: 0.7rem; color: var(--text-muted);">Aumenta par de arranque, reduce corriente.</p>
+                        <div class="slider-hint">Aumenta par de arranque, reduce corriente.</div>
                     </div>
-                    
-                    <div style="margin-top: 10px; text-align: center;">
-                        <button onclick="resetSimulation()" style="background: var(--input-bg); color: white; border: 1px solid var(--border); padding: 5px 15px; border-radius: 4px; cursor: pointer;">🔄 Resetear Velocidad</button>
+
+                    <div style="text-align: center; margin-top: 10px;">
+                        <button class="btn btn-ghost" onclick="VEMLAB.App.resetSimulation()">🔄 Resetear Velocidad</button>
                     </div>
                 </div>
 
+                <!-- Manual Mode -->
                 <div id="ctrl-manual" class="control-section">
                     <div class="slider-box">
-                        <label>Deslizamiento (s) <span id="slip_disp" class="range-val">0.03</span></label>
+                        <div class="slider-label">
+                            <span>Deslizamiento (s)</span>
+                            <span id="slip_disp" class="slider-value">0.03</span>
+                        </div>
                         <input type="range" id="slip_slider" min="0.001" max="1" step="0.001" value="0.03">
                     </div>
                     <p style="font-size: 0.75rem; color: var(--danger);">* Modo laboratorio: Fija la velocidad ignorando la inercia.</p>
@@ -208,8 +152,11 @@
             </div>
         </aside>
 
-        <main>
-            <div class="results-grid">
+        <!-- ======== MAIN CONTENT ======== -->
+        <main class="main-content">
+
+            <!-- KPI Grid -->
+            <div class="kpi-grid">
                 <div class="kpi-box">
                     <div class="kpi-value" id="kpi_rpm">0</div>
                     <div class="kpi-label">RPM</div>
@@ -222,8 +169,8 @@
                     <div class="kpi-value" id="kpi_torque">0</div>
                     <div class="kpi-label">Par Motor (Nm)</div>
                 </div>
-                <div class="kpi-box" style="border-color: var(--secondary);">
-                    <div class="kpi-value" style="color: var(--secondary);" id="kpi_eff">0%</div>
+                <div class="kpi-box success">
+                    <div class="kpi-value" id="kpi_eff">0%</div>
                     <div class="kpi-label">Eficiencia</div>
                 </div>
                 <div class="kpi-box">
@@ -236,504 +183,174 @@
                 </div>
             </div>
 
-            <div class="card">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <div style="display: flex; align-items: center;">
-                        <h3 style="margin-right: 15px; margin-bottom:0; border:none;">Monitor</h3>
-                        <button class="btn-toggle" onclick="toggleView()">📊 / ⚡ Cambiar Vista</button>
+            <!-- Visualization Card -->
+            <div class="card viz-card">
+                <div class="card-header">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div class="card-title"><span class="icon">📊</span> Monitor</div>
+                        <button class="btn btn-outline btn-sm" onclick="VEMLAB.App.toggleView()">📊 / ⚡ Cambiar Vista</button>
                     </div>
-                    <div id="motor_status" class="status-tag st-run">EN MARCHA</div>
+                    <div id="motor_status" class="status-tag st-run">✓ EN MARCHA</div>
                 </div>
-                
+
                 <div class="sim-layout">
                     <div class="view-container">
                         <canvas id="scopeCanvas" width="600" height="300"></canvas>
-                        
+
                         <div id="circuitView">
-                        <svg viewBox="0 0 600 300" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
-                            <defs>
-                                <g id="resistor-h">
-                                    <path d="M0,0 L10,0 L15,-8 L25,8 L35,-8 L45,8 L50,0 L60,0" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <svg viewBox="0 0 600 300" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+                                <defs>
+                                    <g id="resistor-h">
+                                        <path d="M0,0 L10,0 L15,-8 L25,8 L35,-8 L45,8 L50,0 L60,0" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </g>
+                                    <g id="inductor-h">
+                                        <path d="M0,0 L10,0 Q15,-12 20,0 Q25,-12 30,0 Q35,-12 40,0 L50,0" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </g>
+                                    <g id="resistor-v">
+                                        <path d="M0,0 L0,10 L-8,15 L8,25 L-8,35 L8,45 L0,50 L0,60" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </g>
+                                    <g id="inductor-v">
+                                        <path d="M0,0 L0,10 Q12,15 0,20 Q12,25 0,30 Q12,35 0,40 L0,50" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </g>
+                                </defs>
+                                <!-- Wires -->
+                                <line x1="20" y1="50" x2="60" y2="50" stroke="#475569" stroke-width="2"/>
+                                <line x1="120" y1="50" x2="140" y2="50" stroke="#475569" stroke-width="2"/>
+                                <line x1="190" y1="50" x2="290" y2="50" stroke="#475569" stroke-width="2"/>
+                                <line x1="340" y1="50" x2="370" y2="50" stroke="#475569" stroke-width="2"/>
+                                <line x1="430" y1="50" x2="460" y2="50" stroke="#475569" stroke-width="2"/>
+                                <line x1="520" y1="50" x2="550" y2="50" stroke="#475569" stroke-width="2"/>
+                                <line x1="20" y1="250" x2="580" y2="250" stroke="#475569" stroke-width="2"/>
+                                <!-- R1 -->
+                                <use href="#resistor-h" x="60" y="50" stroke="#6366f1"/>
+                                <text x="90" y="35" text-anchor="middle" class="circuit-text">R1</text>
+                                <text id="val_pr1" x="90" y="80" text-anchor="middle" class="circuit-val power-active">0 W</text>
+                                <!-- X1 -->
+                                <use href="#inductor-h" x="140" y="50" stroke="#f59e0b"/>
+                                <text x="165" y="35" text-anchor="middle" class="circuit-text">X1</text>
+                                <text id="val_qx1" x="165" y="80" text-anchor="middle" class="circuit-val power-reactive">0 VAR</text>
+                                <!-- X2' -->
+                                <use href="#inductor-h" x="290" y="50" stroke="#f59e0b"/>
+                                <text x="315" y="35" text-anchor="middle" class="circuit-text">X2'</text>
+                                <text id="val_qx2" x="315" y="80" text-anchor="middle" class="circuit-val power-reactive">0 VAR</text>
+                                <!-- R2' -->
+                                <use href="#resistor-h" x="370" y="50" stroke="#6366f1"/>
+                                <text x="400" y="35" text-anchor="middle" class="circuit-text">R2'</text>
+                                <text id="val_pr2" x="400" y="80" text-anchor="middle" class="circuit-val power-active">0 W</text>
+                                <!-- R.Ext -->
+                                <use href="#resistor-h" x="460" y="50" stroke="#f59e0b"/>
+                                <text x="490" y="35" text-anchor="middle" class="circuit-text">R.Ext</text>
+                                <text id="val_prext" x="490" y="80" text-anchor="middle" class="circuit-val power-active">0 W</text>
+                                <!-- Parallel branch -->
+                                <line x1="240" y1="50" x2="240" y2="90" stroke="#475569" stroke-width="2"/>
+                                <line x1="210" y1="90" x2="270" y2="90" stroke="#475569" stroke-width="2"/>
+                                <use href="#resistor-v" x="210" y="90" stroke="#6366f1"/>
+                                <text x="200" y="125" text-anchor="end" class="circuit-text">Rc</text>
+                                <text id="val_prc" x="200" y="140" text-anchor="end" class="circuit-val power-active">0 W</text>
+                                <use href="#inductor-v" x="270" y="90" stroke="#f59e0b"/>
+                                <text x="285" y="120" text-anchor="start" class="circuit-text">Xm</text>
+                                <text id="val_qxm" x="285" y="135" text-anchor="start" class="circuit-val power-reactive">0 VAR</text>
+                                <!-- Bottom connections -->
+                                <line x1="210" y1="150" x2="210" y2="170" stroke="#475569" stroke-width="2"/>
+                                <line x1="270" y1="140" x2="270" y2="170" stroke="#475569" stroke-width="2"/>
+                                <line x1="210" y1="170" x2="270" y2="170" stroke="#475569" stroke-width="2"/>
+                                <line x1="240" y1="170" x2="240" y2="250" stroke="#475569" stroke-width="2"/>
+                                <line x1="550" y1="50" x2="550" y2="80" stroke="#475569" stroke-width="2"/>
+                                <!-- Mechanical load -->
+                                <g transform="translate(550, 80)">
+                                    <use href="#resistor-v" x="0" y="0" stroke="#10b981"/>
+                                    <line x1="-15" y1="50" x2="15" y2="10" stroke="#10b981" stroke-width="2"/>
+                                    <polygon points="15,10 10,18 5,10" fill="#10b981" transform="rotate(135 15 10)"/>
                                 </g>
-
-                                <g id="inductor-h">
-                                    <path d="M0,0 L10,0 Q15,-12 20,0 Q25,-12 30,0 Q35,-12 40,0 L50,0" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                </g>
-
-                                <g id="resistor-v">
-                                    <path d="M0,0 L0,10 L-8,15 L8,25 L-8,35 L8,45 L0,50 L0,60" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                </g>
-
-                                <g id="inductor-v">
-                                    <path d="M0,0 L0,10 Q12,15 0,20 Q12,25 0,30 Q12,35 0,40 L0,50" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                </g>
-                            </defs>
-
-                            <line x1="20" y1="50" x2="60" y2="50" stroke="#475569" stroke-width="2"/>
-                            <line x1="120" y1="50" x2="140" y2="50" stroke="#475569" stroke-width="2"/>
-                            <line x1="190" y1="50" x2="240" y2="50" stroke="#475569" stroke-width="2"/>
-                            <line x1="240" y1="50" x2="290" y2="50" stroke="#475569" stroke-width="2"/>
-                            <line x1="340" y1="50" x2="370" y2="50" stroke="#475569" stroke-width="2"/>
-                            <line x1="430" y1="50" x2="460" y2="50" stroke="#475569" stroke-width="2"/>
-                            <line x1="520" y1="50" x2="550" y2="50" stroke="#475569" stroke-width="2"/>
-
-                            <line x1="20" y1="250" x2="580" y2="250" stroke="#475569" stroke-width="2"/>
-
-
-                            <use href="#resistor-h" x="60" y="50" stroke="#6366f1" />
-                            <text x="90" y="35" text-anchor="middle" class="circuit-text">R1</text>
-                            <text id="val_pr1" x="90" y="80" text-anchor="middle" class="circuit-val power-active">0 W</text>
-
-                            <use href="#inductor-h" x="140" y="50" stroke="#f59e0b" />
-                            <text x="165" y="35" text-anchor="middle" class="circuit-text">X1</text>
-                            <text id="val_qx1" x="165" y="80" text-anchor="middle" class="circuit-val power-reactive">0 VAR</text>
-
-                            <use href="#inductor-h" x="290" y="50" stroke="#f59e0b" />
-                            <text x="315" y="35" text-anchor="middle" class="circuit-text">X2'</text>
-                            <text id="val_qx2" x="315" y="80" text-anchor="middle" class="circuit-val power-reactive">0 VAR</text>
-
-                            <use href="#resistor-h" x="370" y="50" stroke="#6366f1" />
-                            <text x="400" y="35" text-anchor="middle" class="circuit-text">R2'</text>
-                            <text id="val_pr2" x="400" y="80" text-anchor="middle" class="circuit-val power-active">0 W</text>
-
-                            <use href="#resistor-h" x="460" y="50" stroke="#f59e0b" />
-                            <text x="490" y="35" text-anchor="middle" class="circuit-text">R.Ext</text>
-                            <text id="val_prext" x="490" y="80" text-anchor="middle" class="circuit-val power-active">0 W</text>
-
-
-                            <line x1="240" y1="50" x2="240" y2="90" stroke="#475569" stroke-width="2"/>
-                            
-                            <line x1="210" y1="90" x2="270" y2="90" stroke="#475569" stroke-width="2"/> 
-                            
-                            <use href="#resistor-v" x="210" y="90" stroke="#6366f1" />
-                            <text x="200" y="125" text-anchor="end" class="circuit-text">Rc</text>
-                            <text id="val_prc" x="200" y="140" text-anchor="end" class="circuit-val power-active">0 W</text>
-                            
-                            <use href="#inductor-v" x="270" y="90" stroke="#f59e0b" />
-                            <text x="285" y="120" text-anchor="start" class="circuit-text">Xm</text>
-                            <text id="val_qxm" x="285" y="135" text-anchor="start" class="circuit-val power-reactive">0 VAR</text>
-
-                            <line x1="210" y1="150" x2="210" y2="170" stroke="#475569" stroke-width="2"/> <line x1="270" y1="140" x2="270" y2="170" stroke="#475569" stroke-width="2"/> <line x1="210" y1="170" x2="270" y2="170" stroke="#475569" stroke-width="2"/> <line x1="240" y1="170" x2="240" y2="250" stroke="#475569" stroke-width="2"/> <line x1="550" y1="50" x2="550" y2="80" stroke="#475569" stroke-width="2"/>
-                            
-                            <g transform="translate(550, 80)">
-                                <use href="#resistor-v" x="0" y="0" stroke="#10b981"/>
-                                <line x1="-15" y1="50" x2="15" y2="10" stroke="#10b981" stroke-width="2"/>
-                                <polygon points="15,10 10,18 5,10" fill="#10b981" transform="rotate(135 15 10)"/>
-                            </g>
-
-                            <line x1="550" y1="140" x2="550" y2="250" stroke="#475569" stroke-width="2"/>
-                            
-                            <text x="565" y="110" text-anchor="start" class="circuit-text" fill="#10b981">MECÁNICA</text>
-                            <text id="val_pmech" x="565" y="130" text-anchor="start" class="circuit-val power-mech">0 kW</text>
-
-                            <text x="15" y="40" fill="#fff" font-size="12" font-weight="bold">V1</text>
-                            <text x="15" y="245" fill="#94a3b8" font-size="10">N</text>
-                        </svg>
-                    </div>
+                                <line x1="550" y1="140" x2="550" y2="250" stroke="#475569" stroke-width="2"/>
+                                <text x="565" y="110" text-anchor="start" class="circuit-text" fill="#10b981">MECÁNICA</text>
+                                <text id="val_pmech" x="565" y="130" text-anchor="start" class="circuit-val power-mech">0 kW</text>
+                                <text x="15" y="40" fill="#fff" font-size="12" font-weight="bold">V1</text>
+                                <text x="15" y="245" fill="#94a3b8" font-size="10">N</text>
+                            </svg>
+                        </div>
                     </div>
 
+                    <!-- Rotor Gauge -->
                     <div class="gauge-container">
                         <svg width="140" height="140" viewBox="0 0 100 100">
-                            <circle cx="50" cy="50" r="48" fill="none" stroke="#334155" stroke-width="2"/>
+                            <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
                             <g id="rotorVis" transform-origin="50 50">
                                 <circle cx="50" cy="50" r="40" fill="#1e293b" stroke="var(--text-muted)" stroke-width="1"/>
                                 <line x1="50" y1="50" x2="50" y2="10" stroke="var(--secondary)" stroke-width="4" stroke-linecap="round"/>
                                 <circle cx="50" cy="50" r="5" fill="#fff"/>
-                                <path d="M50 50 L80 80 M50 50 L20 80 M50 50 L50 10" stroke="rgba(255,255,255,0.1)" stroke-width="2"/>
+                                <path d="M50 50 L80 80 M50 50 L20 80 M50 50 L50 10" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
                             </g>
                         </svg>
-                        <div style="margin-top:15px; text-align:center;">
-                            <div style="font-size:0.8rem; color:var(--text-muted);">Deslizamiento</div>
-                            <div id="slip_val_ui" style="font-weight:bold; color:var(--text);">3.0%</div>
-                        </div>
+                        <div class="gauge-label">Deslizamiento</div>
+                        <div id="slip_val_ui" class="gauge-value">3.0%</div>
                     </div>
                 </div>
             </div>
 
-            <div class="card">
-                <h3>Punto de Operación Dinámico</h3>
+            <!-- Torque-Speed Curve -->
+            <div class="card curve-card">
+                <div class="card-header">
+                    <div class="card-title"><span class="icon">📈</span> Punto de Operación Dinámico</div>
+                </div>
                 <div style="height: 280px; width: 100%;">
                     <canvas id="curveCanvas"></canvas>
                 </div>
             </div>
+
+            <!-- ============================================
+                 CHALLENGE SECTION
+                 ============================================ -->
+            <div class="challenge-section">
+                <div class="card challenge-card">
+                    <div class="card-header">
+                        <div class="card-title"><span class="icon">🎯</span> Desafío: <span id="ch-title"></span></div>
+                        <span id="ch-badge" class="challenge-badge badge-easy">Fácil</span>
+                    </div>
+
+                    <div class="challenge-body">
+                        <p class="challenge-description" id="ch-description"></p>
+
+                        <div class="challenge-input-row">
+                            <input type="number" class="challenge-input" id="ch-input" placeholder="Tu respuesta..." step="any">
+                            <div class="challenge-unit" id="ch-unit">RPM</div>
+                            <button class="btn-submit" id="ch-submit">Comprobar</button>
+                        </div>
+
+                        <div id="ch-feedback" class="challenge-feedback"></div>
+                        <div id="ch-hints-area"></div>
+                    </div>
+
+                    <div class="challenge-nav">
+                        <div>
+                            <button class="challenge-hint-btn" id="ch-hint-btn">💡 Pista</button>
+                        </div>
+                        <span class="challenge-progress-text" id="ch-progress-text">1 / 7</span>
+                        <div class="challenge-nav-btns">
+                            <button class="btn btn-outline btn-sm" id="ch-prev">◀ Anterior</button>
+                            <button class="btn btn-outline btn-sm" id="ch-next">Siguiente ▶</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Progress Card -->
+                <div class="card" style="margin-top: 10px;">
+                    <div class="card-header">
+                        <div class="card-title"><span class="icon">📊</span> Progreso</div>
+                        <span id="ch-solved-count" style="font-size:0.8rem; color:var(--text-muted); font-family:'JetBrains Mono',monospace;">0 / 7 resueltos</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" id="ch-progress-fill" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
 
-<script>
-        // ==========================================
-        // 1. MATH & PHYSICS ENGINE
-        // ==========================================
-        class Complex {
-            constructor(re, im) { this.re = re; this.im = im; }
-            add(c) { return new Complex(this.re + c.re, this.im + c.im); }
-            sub(c) { return new Complex(this.re - c.re, this.im - c.im); }
-            mult(c) { return new Complex(this.re * c.re - this.im * c.im, this.re * c.im + this.im * c.re); }
-            div(c) {
-                const den = c.re**2 + c.im**2;
-                if(den === 0) return new Complex(0,0);
-                return new Complex((this.re * c.re + this.im * c.im) / den, (this.im * c.re - this.re * c.im) / den);
-            }
-            mag() { return Math.sqrt(this.re**2 + this.im**2); }
-            angle() { return Math.atan2(this.im, this.re); }
-        }
-
-        const TIME_SCALE = 0.05; 
-        const PHYSICS_SUBSTEPS = 20; 
-        const FRAME_DT = 0.015; 
-        const DT = (FRAME_DT * TIME_SCALE) / PHYSICS_SUBSTEPS;
-
-        let state = {
-            mode: 'auto', view: 'scope', // 'scope' or 'circuit'
-            mechSpeedRad: 0,
-            visualRotorAngle: 0,
-            time: 0,
-            torqueM: 0, torqueL: 0,
-            currentAmp: 0, pfAngle: 0,
-            efficiency: 0, pOut: 0,
-            isStalled: false,
-            // Datos detallados para el circuito
-            circuitData: { PR1:0, QX1:0, PRc:0, QXm:0, PR2:0, QX2:0, PRext:0, PConv:0 }
-        };
-
-        // Cache DOM
-        const dom = {
-            v_line: document.getElementById('v_line'),
-            freq: document.getElementById('freq'),
-            poles: document.getElementById('poles'),
-            inertia: document.getElementById('inertia'),
-            r1: document.getElementById('r1'),
-            x1: document.getElementById('x1'),
-            r2: document.getElementById('r2'),
-            x2: document.getElementById('x2'),
-            rc: document.getElementById('rc'),
-            xm: document.getElementById('xm'),
-            load_type: document.getElementById('load_type'),
-            load_slider: document.getElementById('load_slider'),
-            rext_slider: document.getElementById('rext_slider'),
-            slip_slider: document.getElementById('slip_slider')
-        };
-
-        // Listeners UI
-        dom.load_slider.addEventListener('input', (e) => document.getElementById('load_disp').innerText = e.target.value);
-        dom.slip_slider.addEventListener('input', (e) => document.getElementById('slip_disp').innerText = e.target.value);
-        dom.rext_slider.addEventListener('input', (e) => {
-            document.getElementById('rext_disp').innerText = parseFloat(e.target.value).toFixed(2);
-            updateStaticChart();
-        });
-
-        const motorInputs = document.querySelectorAll('.motor-input');
-        motorInputs.forEach(input => {
-            input.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter') { applyMotorChanges(); e.target.blur(); }
-            });
-        });
-
-        function setMode(m) {
-            state.mode = m;
-            document.getElementById('btn-auto').className = `mode-option ${m==='auto'?'active':''}`;
-            document.getElementById('btn-manual').className = `mode-option ${m==='manual'?'active':''}`;
-            document.getElementById('ctrl-auto').className = `control-section ${m==='auto'?'active':''}`;
-            document.getElementById('ctrl-manual').className = `control-section ${m==='manual'?'active':''}`;
-        }
-
-        function toggleView() {
-            const canvas = document.getElementById('scopeCanvas');
-            const circuit = document.getElementById('circuitView');
-            if(state.view === 'scope') {
-                state.view = 'circuit';
-                canvas.style.display = 'none';
-                circuit.style.display = 'block';
-            } else {
-                state.view = 'scope';
-                canvas.style.display = 'block';
-                circuit.style.display = 'none';
-            }
-        }
-
-        function resetSimulation() { state.mechSpeedRad = 0; }
-
-        // GESTIÓN DE PARÁMETROS
-        let motorStaticParams = {};
-
-        function applyMotorChanges() {
-            motorStaticParams = {
-                V_line: parseFloat(dom.v_line.value) || 400,
-                f: parseFloat(dom.freq.value) || 50,
-                p: parseFloat(dom.poles.value) || 4,
-                J: parseFloat(dom.inertia.value) || 0.1,
-                R1: parseFloat(dom.r1.value),
-                X1: parseFloat(dom.x1.value),
-                R2: parseFloat(dom.r2.value),
-                X2: parseFloat(dom.x2.value),
-                Rc: parseFloat(dom.rc.value),
-                Xm: parseFloat(dom.xm.value)
-            };
-            const btn = document.getElementById('btnApply');
-            if(btn) {
-                btn.classList.add('blink-success');
-                setTimeout(() => btn.classList.remove('blink-success'), 500);
-            }
-            updateStaticChart();
-        }
-
-        function getParams() {
-            return {
-                ...motorStaticParams, 
-                Rext: parseFloat(dom.rext_slider.value),
-                LoadBase: parseFloat(dom.load_slider.value),
-                LoadType: dom.load_type.value,
-                ManualSlip: parseFloat(dom.slip_slider.value)
-            };
-        }
-
-        function solveMotorCircuit(s, p) {
-            const V_phase = p.V_line / Math.sqrt(3);
-            const ws = 2 * Math.PI * p.f; 
-            const w_syn_mech = ws / (p.p/2);
-            
-            let slip = s;
-            if (Math.abs(slip) < 1e-7) slip = 1e-7;
-
-            const R2_tot = p.R2 + p.Rext;
-
-            const Z1 = new Complex(p.R1, p.X1);
-            const numM = new Complex(0, p.Rc * p.Xm);
-            const denM = new Complex(p.Rc, p.Xm);
-            const Zmag = numM.div(denM);
-
-            const Z2 = new Complex(R2_tot / slip, p.X2);
-            
-            const numP = Zmag.mult(Z2);
-            const denP = Zmag.add(Z2);
-            const Zp = numP.div(denP);
-            const Ztot = Z1.add(Zp);
-            
-            const I1_mag = V_phase / Ztot.mag();
-            const pf_angle = Ztot.angle();
-            const pf = Math.cos(pf_angle);
-
-            // Cálculo detallado para el circuito
-            const E1_mag = I1_mag * Zp.mag(); // Tensión rama paralelo
-            const I2_mag = E1_mag / Z2.mag(); // Corriente rotor
-            
-            const P_in = Math.sqrt(3) * p.V_line * I1_mag * pf;
-            const P_gap = 3 * (I2_mag**2) * (R2_tot / slip);
-            const Torque = P_gap / w_syn_mech; 
-            const w_act = w_syn_mech * (1 - slip);
-            const P_out_calc = Torque * w_act; 
-            const eff = (P_in > 0 && P_out_calc > 0) ? (P_out_calc / P_in) * 100 : 0;
-
-            // Datos de Potencia por Elemento (3 Fases)
-            const PR1 = 3 * (I1_mag**2) * p.R1;
-            const QX1 = 3 * (I1_mag**2) * p.X1;
-            const PRc = 3 * (E1_mag**2) / p.Rc;
-            const QXm = 3 * (E1_mag**2) / p.Xm;
-            const PR2 = 3 * (I2_mag**2) * p.R2;
-            const QX2 = 3 * (I2_mag**2) * p.X2;
-            const PRext = 3 * (I2_mag**2) * p.Rext;
-            const PConv = P_gap * (1 - slip); // Potencia mecánica bruta convertida
-
-            return { 
-                I1: I1_mag, pf: pf, pfAngle: pf_angle, Torque: Torque, P_out: P_out_calc, Eff: eff, w_syn: w_syn_mech,
-                circuit: { PR1, QX1, PRc, QXm, PR2, QX2, PRext, PConv }
-            };
-        }
-
-        function getLoadTorque(w, w_syn, base, type) {
-            let ratio = w / w_syn;
-            if(ratio < 0) ratio = 0;
-            if (type === 'constant') return base;
-            if (type === 'linear') return base * ratio;
-            if (type === 'quadratic') return base * (ratio * ratio);
-            return 0;
-        }
-
-        // ==========================================
-        // 2. BUCLE FÍSICO
-        // ==========================================
-        function runPhysicsStep() {
-            const p = getParams(); 
-            const w_syn_mech = (4 * Math.PI * p.f) / p.p;
-
-            if (state.mode === 'manual') {
-                const currentS = p.ManualSlip;
-                state.mechSpeedRad = w_syn_mech * (1 - currentS);
-                const elec = solveMotorCircuit(currentS, p);
-                state.torqueM = elec.Torque;
-                state.torqueL = getLoadTorque(state.mechSpeedRad, w_syn_mech, p.LoadBase, p.LoadType);
-                state.currentAmp = elec.I1;
-                state.pfAngle = elec.pfAngle;
-                state.efficiency = elec.Eff;
-                state.pOut = elec.P_out;
-                state.circuitData = elec.circuit; // Guardar datos
-                state.isStalled = false;
-                return;
-            }
-
-            for(let i = 0; i < PHYSICS_SUBSTEPS; i++) {
-                let s = (w_syn_mech - state.mechSpeedRad) / w_syn_mech;
-                const elec = solveMotorCircuit(s, p);
-                const loadT = getLoadTorque(state.mechSpeedRad, w_syn_mech, p.LoadBase, p.LoadType);
-                const damping = 0.05 * state.mechSpeedRad; 
-                const T_net = elec.Torque - loadT - damping;
-                const alpha = T_net / p.J; 
-                state.mechSpeedRad += alpha * DT;
-                if(state.mechSpeedRad < 0) state.mechSpeedRad = 0;
-                if(state.mechSpeedRad > w_syn_mech * 1.02) state.mechSpeedRad = w_syn_mech * 1.02;
-
-                if(i === PHYSICS_SUBSTEPS - 1) {
-                    state.torqueM = elec.Torque;
-                    state.torqueL = loadT;
-                    state.currentAmp = elec.I1;
-                    state.pfAngle = elec.pfAngle;
-                    state.efficiency = elec.Eff;
-                    state.pOut = elec.P_out;
-                    state.circuitData = elec.circuit; // Guardar datos
-                }
-            }
-            state.isStalled = (Math.abs(state.mechSpeedRad) < 2 && state.torqueM < state.torqueL);
-        }
-
-        // ==========================================
-        // 3. VISUALIZATION
-        // ==========================================
-        
-        const ctxCurve = document.getElementById('curveCanvas').getContext('2d');
-        const chartCurve = new Chart(ctxCurve, {
-            type: 'line',
-            data: {
-                datasets: [
-                    { label: 'Motor', data: [], borderColor: '#6366f1', borderWidth: 2, pointRadius: 0, tension: 0.4, order: 2 },
-                    { label: 'Carga', data: [], borderColor: '#ef4444', borderDash: [5,5], borderWidth: 2, pointRadius: 0, order: 3 },
-                    { label: 'Punto Operativo', type: 'scatter', data: [], backgroundColor: '#fff', borderColor: '#10b981', borderWidth: 3, pointRadius: 8, order: 1 }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, 
-                plugins: { legend: { labels: { color: '#94a3b8' } }, tooltip: { enabled: false } },
-                scales: {
-                    x: { type: 'linear', title: {display:true, text:'RPM'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'} },
-                    y: { min: 0, title: {display:true, text:'Par (Nm)'}, grid:{color:'#334155'}, ticks:{color:'#94a3b8'} }
-                }
-            }
-        });
-
-        function updateStaticChart() {
-            const p = getParams();
-            const w_syn = (4 * Math.PI * p.f) / p.p;
-            const synRPM = (w_syn * 60)/(2*Math.PI);
-            const dataM = [];
-            for(let rpm=0; rpm<=synRPM*1.05; rpm+=15) {
-                const rad = (rpm * 2 * Math.PI)/60;
-                const s_calc = (w_syn - rad)/w_syn;
-                const pt = solveMotorCircuit(s_calc, p);
-                dataM.push({x: rpm, y: pt.Torque});
-            }
-            chartCurve.data.datasets[0].data = dataM;
-            chartCurve.options.scales.x.max = synRPM * 1.1;
-        }
-
-        function formatPower(val) {
-            if(Math.abs(val) >= 1000) return (val/1000).toFixed(2) + " k";
-            return val.toFixed(1) + " ";
-        }
-
-        function updateUI(w_syn, s) {
-            // KPIs básicos
-            const rpm = (state.mechSpeedRad * 60) / (2 * Math.PI);
-            document.getElementById('kpi_rpm').innerText = rpm.toFixed(0);
-            document.getElementById('kpi_current').innerText = state.currentAmp.toFixed(1);
-            document.getElementById('kpi_torque').innerText = state.torqueM.toFixed(1);
-            document.getElementById('kpi_eff').innerText = state.efficiency.toFixed(1) + "%";
-            document.getElementById('kpi_pout').innerText = (state.pOut/1000).toFixed(2);
-            document.getElementById('kpi_pf').innerText = Math.cos(state.pfAngle).toFixed(2);
-            document.getElementById('slip_val_ui').innerText = (s*100).toFixed(1) + "%";
-
-            const statusDiv = document.getElementById('motor_status');
-            if(state.isStalled) {
-                statusDiv.innerText = "⚠️ CALADO / BLOQUEADO"; statusDiv.className = "status-tag st-stall";
-            } else {
-                statusDiv.innerText = "EN MARCHA"; statusDiv.className = "status-tag st-run";
-            }
-            
-            const angleDeg = (state.visualRotorAngle * 180) / Math.PI;
-            document.getElementById('rotorVis').style.transform = `rotate(${angleDeg}deg)`;
-
-            // ACTUALIZAR DATOS DEL CIRCUITO (Solo si visible)
-            if(state.view === 'circuit') {
-                const d = state.circuitData;
-                document.getElementById('val_pr1').textContent = formatPower(d.PR1) + "W";
-                document.getElementById('val_qx1').textContent = formatPower(d.QX1) + "VAR";
-                document.getElementById('val_prc').textContent = formatPower(d.PRc) + "W";
-                document.getElementById('val_qxm').textContent = formatPower(d.QXm) + "VAR";
-                document.getElementById('val_pr2').textContent = formatPower(d.PR2) + "W";
-                document.getElementById('val_qx2').textContent = formatPower(d.QX2) + "VAR";
-                document.getElementById('val_prext').textContent = formatPower(d.PRext) + "W";
-                document.getElementById('val_pmech').textContent = formatPower(d.PConv) + "W";
-            }
-        }
-
-        const scopeCanvas = document.getElementById('scopeCanvas');
-        const ctxScope = scopeCanvas.getContext('2d');
-        let frameCount = 0;
-
-        function renderLoop() {
-            runPhysicsStep();
-
-            const timeStep = FRAME_DT * (typeof TIME_SCALE !== 'undefined' ? TIME_SCALE : 1.0);
-            state.time += timeStep; 
-            state.visualRotorAngle += state.mechSpeedRad * timeStep;
-            frameCount++;
-
-            const p = getParams();
-            const w_syn = (4 * Math.PI * p.f) / p.p;
-            const currentS = (w_syn - state.mechSpeedRad) / w_syn;
-            
-            updateUI(w_syn, currentS);
-
-            // RENDER OSCILOSCOPIO (Solo si visible)
-            if(state.view === 'scope') {
-                const w = scopeCanvas.width; const h = scopeCanvas.height;
-                ctxScope.clearRect(0, 0, w, h);
-                ctxScope.strokeStyle = '#333'; ctxScope.lineWidth = 1; 
-                ctxScope.beginPath(); ctxScope.moveTo(0, h/2); ctxScope.lineTo(w, h/2); ctxScope.stroke();
-
-                const drawWave = (color, phaseOffset, amplitudeRatio, width) => {
-                    ctxScope.beginPath(); ctxScope.strokeStyle = color; ctxScope.lineWidth = width;
-                    for(let x=0; x<w; x++) {
-                        const t = (x * 0.02) - (state.time * 0.5); 
-                        const y = (h/2) + Math.sin(t - phaseOffset) * (h/2.5) * amplitudeRatio;
-                        if(x==0) ctxScope.moveTo(x,y); else ctxScope.lineTo(x,y);
-                    }
-                    ctxScope.stroke();
-                }
-                drawWave('#3b82f6', 0, 0.8, 2); // Tensión
-                
-                let visualAmp = (state.currentAmp / 50) * 0.8;
-                if(visualAmp > 0.95) visualAmp = 0.95;
-                drawWave('#ef4444', state.pfAngle, visualAmp, 3); // Corriente
-            }
-
-            if(frameCount % 5 === 0) {
-                const synRPM = (w_syn * 60)/(2*Math.PI);
-                const dataL = [];
-                for(let rpm=0; rpm<=synRPM*1.05; rpm+=15) {
-                    const rad = (rpm * 2 * Math.PI)/60;
-                    const ld = getLoadTorque(rad, w_syn, p.LoadBase, p.LoadType);
-                    dataL.push({x: rpm, y: ld});
-                }
-                chartCurve.data.datasets[1].data = dataL;
-                const currRPM = (state.mechSpeedRad * 60) / (2 * Math.PI);
-                chartCurve.data.datasets[2].data = [{ x: currRPM, y: state.torqueM }];
-                chartCurve.update('none');
-            }
-
-            requestAnimationFrame(renderLoop);
-        }
-        
-        applyMotorChanges();
-        renderLoop();
-
-    </script>
+    <!-- Scripts (order matters) -->
+    <script src="js/physics.js"></script>
+    <script src="js/challenges.js"></script>
+    <script src="js/app.js"></script>
 </body>
 </html>
