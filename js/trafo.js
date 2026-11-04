@@ -2,7 +2,7 @@
    VEMLAB · Transformador trifásico, conexión estrella–estrella (Yy)
    Circuito equivalente aproximado por fase, referido al primario:
    rama de vacío (RFe ‖ jXμ) en bornes del primario y Rcc + jXcc en serie.
-   Tensiones de los instrumentos: de línea. Potencias: trifásicas totales.
+   Todas las tensiones son DE FASE. Potencias: trifásicas totales.
    ===================================================================== */
 (function () {
     'use strict';
@@ -11,20 +11,20 @@
 
     var params = [
         { k: 'Sn', label: 'Potencia nominal S<sub>n</sub> (trifásica)', unit: 'VA', def: 5000, group: 'Placa' },
-        { k: 'V1n', label: 'Tensión de línea primaria V<sub>1n</sub>', unit: 'V', def: 400, group: 'Placa' },
-        { k: 'V2n', label: 'Tensión de línea secundaria V<sub>2n</sub>', unit: 'V', def: 230, group: 'Placa' },
+        { k: 'V1n', label: 'Tensión de fase primaria V<sub>1n</sub>', unit: 'V', def: 230, group: 'Placa' },
+        { k: 'V2n', label: 'Tensión de fase secundaria V<sub>2n</sub>', unit: 'V', def: 133, group: 'Placa' },
         { k: 'Rfe', label: 'R<sub>Fe</sub>', unit: 'Ω', def: 3200, group: 'Ensayo de vacío' },
         { k: 'Xmu', label: 'X<sub>μ</sub>', unit: 'Ω', def: 826, group: 'Ensayo de vacío' },
         { k: 'Rcc', label: 'R<sub>cc</sub>', unit: 'Ω', def: 0.64, group: 'Ensayo de cortocircuito' },
         { k: 'Xcc', label: 'X<sub>cc</sub>', unit: 'Ω', def: 1.29, group: 'Ensayo de cortocircuito' }
     ];
 
-    function I1n(P) { return P.Sn / (SQ3 * P.V1n); }
+    function I1n(P) { return P.Sn / (3 * P.V1n); }
     function Zcc(P) { return C(P.Rcc, P.Xcc); }
 
     function solve(P, mode, V, L) {
-        var m = P.V1n / P.V2n;          /* en Yy, relación de tensiones de fase = de línea */
-        var Vf = V / SQ3;               /* tensión de fase del primario */
+        var m = P.V1n / P.V2n;
+        var Vf = V;                     /* tensión de fase del primario */
         var V1 = C(Vf);
         var I0 = Cx.mul(V1, C(1 / P.Rfe, -1 / P.Xmu));
         var I2p = C(0), ZLp = null;
@@ -41,38 +41,38 @@
         var P1 = 3 * S1.re;
         var P2 = ZLp ? 3 * i2p * i2p * ZLp.re : 0;
         var V2f = Cx.abs(V2p) / m;
-        var V2 = V2f * SQ3, V20 = V / m;
+        var V2 = V2f, V20 = V / m;
         return {
             m: m, V1: V, V1f: Vf, V2f: V2f, I0: Cx.abs(I0), I1: i1, P1: P1, cos1: i1 > 0 ? S1.re / (Vf * i1) : 0,
             I2p: i2p, I2: i2p * m, V2: V2, P2: P2,
             eta: P1 > 0 ? P2 / P1 * 100 : NaN,
             eps: V20 > 0 ? (V20 - V2) / V20 * 100 : NaN,
-            Cidx: i2p * m / (P.Sn / (SQ3 * P.V2n)),
+            Cidx: i2p * m / (P.Sn / (3 * P.V2n)),
             cos2: ZLp ? ZLp.re / Cx.abs(ZLp) : NaN
         };
     }
 
     function readings(mode, r) {
         if (mode === 'vacio') return [
-            { k: 'V1', label: 'Tensión de línea primario V<sub>1</sub>', unit: 'V', v: r.V1, dec: 1 },
-            { k: 'I0', label: 'Corriente de línea de vacío I<sub>0</sub>', unit: 'A', v: r.I1, dec: 3 },
+            { k: 'V1', label: 'Tensión de fase primario V<sub>1</sub>', unit: 'V', v: r.V1, dec: 1 },
+            { k: 'I0', label: 'Corriente de vacío I<sub>0</sub>', unit: 'A', v: r.I1, dec: 3 },
             { k: 'P0', label: 'Potencia de vacío P<sub>0</sub> (total)', unit: 'W', v: r.P1, dec: 1 },
-            { k: 'V20', label: 'Tensión de línea secundario V<sub>20</sub>', unit: 'V', v: r.V2, dec: 1 },
+            { k: 'V20', label: 'Tensión de fase secundario V<sub>20</sub>', unit: 'V', v: r.V2, dec: 1 },
             { k: 'cos0', label: 'cos φ<sub>0</sub>', unit: '', v: r.cos1, dec: 3 }
         ];
         if (mode === 'cc') return [
-            { k: 'V1', label: 'Tensión de línea de cortocircuito V<sub>1cc</sub>', unit: 'V', v: r.V1, dec: 2 },
-            { k: 'I1', label: 'Corriente de línea primario I<sub>1cc</sub>', unit: 'A', v: r.I1, dec: 2 },
+            { k: 'V1', label: 'Tensión de fase de cortocircuito V<sub>1cc</sub>', unit: 'V', v: r.V1, dec: 2 },
+            { k: 'I1', label: 'Corriente primario I<sub>1cc</sub>', unit: 'A', v: r.I1, dec: 2 },
             { k: 'Pcc', label: 'Potencia de cortocircuito P<sub>cc</sub> (total)', unit: 'W', v: r.P1, dec: 1 },
-            { k: 'I2', label: 'Corriente de línea secundario I<sub>2cc</sub>', unit: 'A', v: r.I2, dec: 2 },
+            { k: 'I2', label: 'Corriente secundario I<sub>2cc</sub>', unit: 'A', v: r.I2, dec: 2 },
             { k: 'coscc', label: 'cos φ<sub>cc</sub>', unit: '', v: r.cos1, dec: 3 }
         ];
         return [
-            { k: 'V1', label: 'Tensión de línea primario V<sub>1</sub>', unit: 'V', v: r.V1, dec: 1 },
-            { k: 'I1', label: 'Corriente de línea primario I<sub>1</sub>', unit: 'A', v: r.I1, dec: 2 },
+            { k: 'V1', label: 'Tensión de fase primario V<sub>1</sub>', unit: 'V', v: r.V1, dec: 1 },
+            { k: 'I1', label: 'Corriente primario I<sub>1</sub>', unit: 'A', v: r.I1, dec: 2 },
             { k: 'P1', label: 'Potencia absorbida P<sub>1</sub> (total)', unit: 'W', v: r.P1, dec: 0 },
-            { k: 'V2', label: 'Tensión de línea secundario V<sub>2</sub>', unit: 'V', v: r.V2, dec: 1 },
-            { k: 'I2', label: 'Corriente de línea secundario I<sub>2</sub>', unit: 'A', v: r.I2, dec: 2 },
+            { k: 'V2', label: 'Tensión de fase secundario V<sub>2</sub>', unit: 'V', v: r.V2, dec: 1 },
+            { k: 'I2', label: 'Corriente secundario I<sub>2</sub>', unit: 'A', v: r.I2, dec: 2 },
             { k: 'P2', label: 'Potencia entregada P<sub>2</sub> (total)', unit: 'W', v: r.P2, dec: 0 },
             { k: 'eta', label: 'Rendimiento η', unit: '%', v: r.eta, dec: 2 },
             { k: 'eps', label: 'Caída de tensión ε', unit: '%', v: r.eps, dec: 2 },
@@ -84,7 +84,7 @@
     function diagram(P, mode, r, L) {
         var b = '', top = 70, bot = 240, f = fmt;
         /* fuente y primario */
-        b += S.txt(20, 32, 'V₁ = U₁/√3 = ' + f(r.V1f, 1) + ' V', { a: 'start', c: 'val' });
+        b += S.txt(20, 32, 'V₁ = ' + f(r.V1f, 1) + ' V', { a: 'start', c: 'val' });
         b += S.source(50, 155);
         b += S.wire('M50,135 V' + top + ' H240 M300,' + top + ' H330 M390,' + top + ' H450 V115');
         b += S.wire('M50,175 V' + bot + ' H450 V195');
@@ -130,18 +130,17 @@
             }
         }
         b += S.txt(580, 160, 'V₂ = ' + f(r.V2f, 1) + ' V', { c: 'val' });
-        b += S.txt(580, 180, '(fase)', { c: 'muted' });
         b += S.txt(260, 285, 'Circuito equivalente aproximado por fase (estrella) · referido al primario', { c: 'muted' });
         return '<svg class="diagram" viewBox="0 0 790 296" role="img" aria-label="Circuito equivalente del transformador">' + b + '</svg>';
     }
 
-    var Zb = function (P) { return P.V2n * P.V2n / P.Sn; };   /* impedancia base por fase del secundario (estrella) */
+    var Zb = function (P) { return 3 * P.V2n * P.V2n / P.Sn; };   /* impedancia base por fase del secundario (estrella) */
 
     VEM.machines = VEM.machines || [];
     VEM.machines.push({
         id: 'trafo', name: 'Transformador', subtitle: 'Transformador trifásico en estrella–estrella (Yy)',
         params: params,
-        note: 'R<sub>cc</sub>, X<sub>cc</sub>, R<sub>Fe</sub> y X<sub>μ</sub> son valores <strong>por fase</strong> (estrella), referidos al primario. Calcúlalos con tensiones de fase (U/√3) y potencias por fase (P/3).',
+        note: 'R<sub>cc</sub>, X<sub>cc</sub>, R<sub>Fe</sub> y X<sub>μ</sub> son valores <strong>por fase</strong> (estrella), referidos al primario. Todas las tensiones son <strong>de fase</strong>; las potencias, totales (usa P/3 por fase).',
         modes: [
             { id: 'vacio', label: 'Vacío', help: 'Secundario abierto. Con V<sub>1</sub> = V<sub>1n</sub> el simulador debe dar tus I<sub>0</sub> y P<sub>0</sub> medidas (P<sub>0</sub> total, p. ej. suma de los dos vatímetros).' },
             { id: 'cc', label: 'Cortocircuito', help: 'Secundario en cortocircuito. Ajusta V<sub>1</sub> hasta I<sub>1</sub> = I<sub>1n</sub>, como en el laboratorio.' },
@@ -149,11 +148,11 @@
         ],
         supply: function (mode, P) {
             if (mode === 'cc') {
-                var Vin = SQ3 * I1n(P) * Cx.abs(Zcc(P));
-                return { label: 'Tensión de línea aplicada V<sub>1</sub>', unit: 'V', min: 0, max: +(Math.max(Vin * 1.5, 1)).toFixed(1), step: 0.1, def: +Vin.toFixed(1),
+                var Vin = I1n(P) * Cx.abs(Zcc(P));
+                return { label: 'Tensión de fase aplicada V<sub>1</sub>', unit: 'V', min: 0, max: +(Math.max(Vin * 1.5, 1)).toFixed(1), step: 0.1, def: +Vin.toFixed(1),
                     quick: { label: 'Ajustar a I<sub>1n</sub> = ' + fmt(I1n(P), 2) + ' A', v: Vin } };
             }
-            return { label: 'Tensión de línea aplicada V<sub>1</sub>', unit: 'V', min: 0, max: Math.round(P.V1n * 1.2), step: 1, def: P.V1n,
+            return { label: 'Tensión de fase aplicada V<sub>1</sub>', unit: 'V', min: 0, max: Math.round(P.V1n * 1.2), step: 1, def: P.V1n,
                 quick: { label: 'Tensión nominal ' + fmt(P.V1n, 0) + ' V', v: P.V1n } };
         },
         load: function (P) {

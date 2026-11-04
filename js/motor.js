@@ -9,7 +9,7 @@
     var SQ3 = Math.sqrt(3);
 
     var params = [
-        { k: 'Un', label: 'Tensión de línea U<sub>n</sub>', unit: 'V', def: 400, group: 'Placa' },
+        { k: 'Un', label: 'Tensión de fase V<sub>1n</sub>', unit: 'V', def: 230, group: 'Placa' },
         { k: 'In', label: 'Corriente nominal I<sub>n</sub>', unit: 'A', def: 7.6, group: 'Placa' },
         { k: 'f', label: 'Frecuencia f', unit: 'Hz', def: 50, group: 'Placa' },
         { k: 'p', label: 'Pares de polos p', unit: '', def: 2, group: 'Placa', int: true },
@@ -26,7 +26,7 @@
     function w1(P) { return 2 * Math.PI * P.f / P.p; }
 
     function circuit(P, s, U) {
-        var V = U / SQ3;
+        var V = U;                      /* tensión de fase */
         var Zm = Cx.par(C(P.Rfe), C(0, P.Xmu));
         var Z2 = C(P.R2 / s, P.X2);
         var Zp = Cx.par(Zm, Z2);
@@ -77,23 +77,23 @@
     function readings(mode, r) {
         var cos = { k: 'cos', label: 'Factor de potencia cos φ', unit: '', v: r.cos, dec: 3 };
         if (mode === 'vacio') return [
-            { k: 'U', label: 'Tensión de línea U', unit: 'V', v: r.U, dec: 1 },
-            { k: 'I0', label: 'Corriente de línea I<sub>0</sub>', unit: 'A', v: r.I1, dec: 3 },
-            { k: 'P0', label: 'Potencia total P<sub>0</sub>', unit: 'W', v: r.P1, dec: 1 },
+            { k: 'U', label: 'Tensión de fase V<sub>1</sub>', unit: 'V', v: r.U, dec: 1 },
+            { k: 'I0', label: 'Corriente de vacío I<sub>0</sub>', unit: 'A', v: r.I1, dec: 3 },
+            { k: 'P0', label: 'Potencia de vacío P<sub>0</sub> (total)', unit: 'W', v: r.P1, dec: 1 },
             { k: 'n', label: 'Velocidad n', unit: 'rpm', v: r.n, dec: 0 },
             cos
         ];
         if (mode === 'bloqueado') return [
-            { k: 'U', label: 'Tensión de línea U<sub>cc</sub>', unit: 'V', v: r.U, dec: 1 },
-            { k: 'I', label: 'Corriente de línea I<sub>cc</sub>', unit: 'A', v: r.I1, dec: 2 },
-            { k: 'P', label: 'Potencia total P<sub>cc</sub>', unit: 'W', v: r.P1, dec: 1 },
+            { k: 'U', label: 'Tensión de fase V<sub>1cc</sub>', unit: 'V', v: r.U, dec: 1 },
+            { k: 'I', label: 'Corriente I<sub>cc</sub>', unit: 'A', v: r.I1, dec: 2 },
+            { k: 'P', label: 'Potencia de cortocircuito P<sub>cc</sub> (total)', unit: 'W', v: r.P1, dec: 1 },
             cos,
             { k: 'T', label: 'Par de arranque', unit: 'N·m', v: r.Tem, dec: 2 }
         ];
         return [
-            { k: 'U', label: 'Tensión de línea U', unit: 'V', v: r.U, dec: 1 },
-            { k: 'I', label: 'Corriente de línea I', unit: 'A', v: r.I1, dec: 2 },
-            { k: 'P1', label: 'Potencia absorbida P<sub>1</sub>', unit: 'W', v: r.P1, dec: 0 },
+            { k: 'U', label: 'Tensión de fase V<sub>1</sub>', unit: 'V', v: r.U, dec: 1 },
+            { k: 'I', label: 'Corriente I', unit: 'A', v: r.I1, dec: 2 },
+            { k: 'P1', label: 'Potencia absorbida P<sub>1</sub> (total)', unit: 'W', v: r.P1, dec: 0 },
             cos,
             { k: 'T', label: 'Par útil T (en el freno)', unit: 'N·m', v: r.Tu, dec: 2 },
             { k: 'Pu', label: 'Potencia útil P<sub>u</sub>', unit: 'W', v: r.Pu, dec: 0 },
@@ -104,7 +104,7 @@
 
     function diagram(P, mode, r) {
         var b = '', top = 70, bot = 240, f = fmt;
-        b += S.txt(80, 205, 'V₁ = U/√3 = ' + f(r.V, 1) + ' V', { a: 'start', c: 'val' });
+        b += S.txt(80, 205, 'V₁ = ' + f(r.V, 1) + ' V', { a: 'start', c: 'val' });
         b += S.txt(20, 32, 'I₁ = ' + f(r.I1, 2) + ' A', { a: 'start', c: 'val' });
         b += S.source(50, 155);
         b += S.wire('M50,135 V' + top + ' H110 M170,' + top + ' H190 M250,' + top + ' H370 M430,' + top + ' H450 M510,' + top + ' H620 V100');
@@ -143,19 +143,19 @@
     VEM.machines.unshift({
         id: 'motor', name: 'Máquina asíncrona', subtitle: 'Motor trifásico',
         params: params,
-        note: 'Valores por fase en estrella equivalente, referidos al estátor. R<sub>1</sub> es la resistencia de una fase.',
+        note: 'Valores <strong>por fase</strong> (estrella), referidos al estátor. Todas las tensiones son <strong>de fase</strong>; las potencias, totales (usa P/3 por fase).',
         modes: [
-            { id: 'vacio', label: 'Vacío', help: 'Motor girando sin carga. A U<sub>n</sub> el simulador debe dar tus I<sub>0</sub> y P<sub>0</sub> medidas.' },
-            { id: 'bloqueado', label: 'Rotor bloqueado', help: 'Rotor parado (s = 1). Ajusta U hasta I = I<sub>n</sub>, como en el laboratorio.' },
+            { id: 'vacio', label: 'Vacío', help: 'Motor girando sin carga. A V<sub>1n</sub> el simulador debe dar tus I<sub>0</sub> y P<sub>0</sub> medidas.' },
+            { id: 'bloqueado', label: 'Rotor bloqueado', help: 'Rotor parado (s = 1). Ajusta V<sub>1</sub> hasta I = I<sub>n</sub>, como en el laboratorio.' },
             { id: 'carga', label: 'Carga', help: 'Introduce la velocidad que mediste con el freno y compara corriente, potencia y par.' }
         ],
         supply: function (mode, P) {
             if (mode === 'bloqueado') {
                 var Uin = P.In / circuit(P, 1, 1).I1;
-                return { label: 'Tensión de línea U', unit: 'V', min: 0, max: Math.round(Math.max(Uin * 1.6, 10)), step: 0.5, def: Math.round(Uin * 2) / 2,
+                return { label: 'Tensión de fase aplicada V<sub>1</sub>', unit: 'V', min: 0, max: Math.round(Math.max(Uin * 1.6, 10)), step: 0.5, def: Math.round(Uin * 2) / 2,
                     quick: { label: 'Ajustar a I<sub>n</sub> = ' + fmt(P.In, 2) + ' A', v: Uin } };
             }
-            return { label: 'Tensión de línea U', unit: 'V', min: 0, max: Math.round(P.Un * 1.2), step: 1, def: P.Un,
+            return { label: 'Tensión de fase aplicada V<sub>1</sub>', unit: 'V', min: 0, max: Math.round(P.Un * 1.2), step: 1, def: P.Un,
                 quick: { label: 'Tensión nominal ' + fmt(P.Un, 0) + ' V', v: P.Un } };
         },
         load: function (P) {

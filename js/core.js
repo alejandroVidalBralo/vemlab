@@ -40,10 +40,10 @@
     /* ---------------- Almacenamiento local ---------------- */
     VEM.store = {
         get: function (k, def) {
-            try { var v = localStorage.getItem('vemlab2.' + k); return v === null ? def : JSON.parse(v); }
+            try { var v = localStorage.getItem('vemlab3.' + k); return v === null ? def : JSON.parse(v); }
             catch (e) { return def; }
         },
-        set: function (k, v) { try { localStorage.setItem('vemlab2.' + k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
+        set: function (k, v) { try { localStorage.setItem('vemlab3.' + k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento */ } }
     };
 
     /* ---------------- Dibujo SVG ---------------- */
