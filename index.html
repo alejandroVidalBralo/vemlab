@@ -3,354 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="VEMLAB - Simulador interactivo de máquinas eléctricas con desafíos para estudiantes de ingeniería. Motor asíncrono, síncrono, DC y transformador.">
-    <title>VEMLAB | Laboratorio Virtual de Máquinas Eléctricas</title>
+    <meta name="description" content="VEMLAB · Laboratorio virtual de máquinas eléctricas: ensayos del transformador y del motor asíncrono como complemento a las prácticas de laboratorio.">
+    <title>VEMLAB · Laboratorio virtual de máquinas eléctricas</title>
     <link rel="stylesheet" href="css/main.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-
-    <!-- ============================================
-         TOP NAVIGATION
-         ============================================ -->
-    <nav class="top-nav">
-        <div style="display:flex; align-items:center;">
-            <div class="logo">⚡ VEMLAB</div>
-            <span class="logo-sub">Laboratorio Virtual</span>
+    <header class="topbar">
+        <div class="brand">
+            <span class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 12c1.4-3 2.8-3 4.1 0s2.7 3 4.1 0 2.4-2.4 2.8-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </span>
+            <span class="brand-name">VEMLAB</span>
+            <span class="brand-sub">Laboratorio virtual de máquinas eléctricas</span>
         </div>
-        <div class="machine-tabs">
-            <button class="machine-tab active" id="tab-async">Motor Asíncrono</button>
-            <button class="machine-tab disabled" title="Próximamente">Motor Síncrono</button>
-            <button class="machine-tab disabled" title="Próximamente">Motor DC</button>
-            <button class="machine-tab disabled" title="Próximamente">Transformador</button>
+        <nav class="machine-tabs" role="tablist" aria-label="Máquina">
+            <button type="button" role="tab" data-m="async">Máquina asíncrona</button>
+            <button type="button" role="tab" data-m="trafo">Transformador</button>
+        </nav>
+        <div class="top-actions">
+            <button type="button" class="icon-btn lg" id="btn-theme" aria-label="Cambiar tema">☾</button>
+            <button type="button" class="icon-btn lg" id="btn-settings" title="Ajustes" aria-label="Ajustes">⚙</button>
         </div>
-    </nav>
+    </header>
 
-    <!-- ============================================
-         APP LAYOUT
-         ============================================ -->
-    <div class="app-layout">
+    <nav class="subnav" id="subnav" aria-label="Prácticas"></nav>
 
-        <!-- ======== SIDEBAR ======== -->
-        <aside class="sidebar">
+    <main id="view" class="view"></main>
 
-            <!-- Motor Parameters -->
-            <div class="card">
-                <div class="card-header">
-                    <div class="card-title"><span class="icon">⚙️</span> Parámetros del Motor (Modelo T)</div>
-                </div>
-                <div class="input-grid">
-                    <div class="input-group">
-                        <label>V Línea (V)</label>
-                        <input type="number" class="motor-input" id="v_line" value="400">
-                    </div>
-                    <div class="input-group">
-                        <label>Frec (Hz)</label>
-                        <input type="number" class="motor-input" id="freq" value="50">
-                    </div>
-                </div>
-                <div class="input-grid">
-                    <div class="input-group">
-                        <label>Polos</label>
-                        <input type="number" class="motor-input" id="poles" value="4">
-                    </div>
-                    <div class="input-group">
-                        <label>Inercia J (kg·m²)</label>
-                        <input type="number" class="motor-input" id="inertia" value="0.2" step="0.05">
-                    </div>
-                </div>
-                <hr class="divider">
-                <div class="input-grid">
-                    <div class="input-group">
-                        <label>R1 (Estator)</label>
-                        <input type="number" class="motor-input" id="r1" value="0.641">
-                    </div>
-                    <div class="input-group">
-                        <label>X1 (Estator)</label>
-                        <input type="number" class="motor-input" id="x1" value="1.106">
-                    </div>
-                </div>
-                <div class="input-grid">
-                    <div class="input-group">
-                        <label>R2' (Rotor)</label>
-                        <input type="number" class="motor-input" id="r2" value="0.332">
-                    </div>
-                    <div class="input-group">
-                        <label>X2' (Rotor)</label>
-                        <input type="number" class="motor-input" id="x2" value="0.464">
-                    </div>
-                </div>
-                <div class="input-grid">
-                    <div class="input-group">
-                        <label>Rc (Pérd. Hierro)</label>
-                        <input type="number" class="motor-input" id="rc" value="800">
-                    </div>
-                    <div class="input-group">
-                        <label>Xm (Mag.)</label>
-                        <input type="number" class="motor-input" id="xm" value="26.3">
-                    </div>
-                </div>
-                <button id="btnApply" class="btn btn-primary" onclick="VEMLAB.App.applyMotorChanges()">✅ Aplicar Parámetros (Enter)</button>
+    <footer class="footer">
+        <p>VEMLAB es un <strong>complemento</strong> a las prácticas: prepara los ensayos antes de la sesión y contrasta después tus medidas reales.
+            Modelo de régimen permanente con circuito equivalente; las lecturas incluyen un pequeño error de medida (desactivable en ⚙).</p>
+    </footer>
+
+    <dialog id="settings" class="dialog" aria-labelledby="set-title">
+        <div class="dialog-head">
+            <h2 id="set-title">Ajustes</h2>
+            <button type="button" class="icon-btn" data-close aria-label="Cerrar">×</button>
+        </div>
+        <section class="dialog-sec">
+            <label class="check"><input type="checkbox" id="set-noise"> <span><strong>Error de medida en los instrumentos</strong><br>
+                <small>Añade una pequeña dispersión (≈ 0,3 %) a las lecturas, como en un instrumento real.</small></span></label>
+        </section>
+        <section class="dialog-sec">
+            <h3>Código de práctica</h3>
+            <p><small>Con un código (p. ej. el de cada grupo) se genera una máquina con <strong>parámetros ocultos</strong> distintos para cada código.
+                El alumnado debe identificarlos con los ensayos. El profesor puede introducir el mismo código y mostrar los parámetros para corregir.</small></p>
+            <div class="inline-form">
+                <input type="text" id="set-code" placeholder="p. ej. GRUPO-3" maxlength="24" autocomplete="off" aria-label="Código de práctica">
+                <button type="button" class="btn btn-primary" id="set-code-apply">Cargar</button>
+                <button type="button" class="btn btn-ghost" id="set-code-clear">Quitar</button>
             </div>
+            <label class="check" id="set-reveal-row" hidden><input type="checkbox" id="set-reveal"> <span>Mostrar parámetros (profesor)</span></label>
+        </section>
+        <section class="dialog-sec">
+            <h3>Datos</h3>
+            <p><small>Las medidas registradas se guardan en este navegador. Exporta cada tabla a CSV para tu informe.</small></p>
+            <button type="button" class="btn btn-danger" id="set-clear">Borrar todas las medidas</button>
+        </section>
+    </dialog>
 
-            <!-- Control & Load -->
-            <div class="card" style="border-color: rgba(99,102,241,0.25);">
-                <div class="card-header">
-                    <div class="card-title"><span class="icon">🎛️</span> Control y Carga</div>
-                </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-                <div class="mode-switch">
-                    <div class="mode-option active" onclick="VEMLAB.App.setMode('auto')" id="btn-auto">Dinámico (Auto)</div>
-                    <div class="mode-option" onclick="VEMLAB.App.setMode('manual')" id="btn-manual">Forzar Slip</div>
-                </div>
-
-                <!-- Auto Mode -->
-                <div id="ctrl-auto" class="control-section active">
-                    <div class="input-group" style="margin-bottom:10px;">
-                        <label>Tipo de Carga</label>
-                        <select id="load_type">
-                            <option value="quadratic">Ventilador (k·ω²)</option>
-                            <option value="constant">Elevador (Constante)</option>
-                            <option value="linear">Freno (k·ω)</option>
-                        </select>
-                    </div>
-
-                    <div class="slider-box">
-                        <div class="slider-label">
-                            <span>Nivel de Carga (Nm base)</span>
-                            <span id="load_disp" class="slider-value">50</span>
-                        </div>
-                        <input type="range" id="load_slider" min="0" max="500" value="50">
-                        <div class="slider-hint">Carga aplicada al eje del motor.</div>
-                    </div>
-
-                    <div class="slider-box accent">
-                        <div class="slider-label">
-                            <span style="color: var(--accent);">Reóstato Arranque (Ω)</span>
-                            <span id="rext_disp" class="slider-value" style="color:var(--accent);">0.00</span>
-                        </div>
-                        <input type="range" id="rext_slider" min="0" max="10" step="0.1" value="0">
-                        <div class="slider-hint">Aumenta par de arranque, reduce corriente.</div>
-                    </div>
-
-                    <div style="text-align: center; margin-top: 10px;">
-                        <button class="btn btn-ghost" onclick="VEMLAB.App.resetSimulation()">🔄 Resetear Velocidad</button>
-                    </div>
-                </div>
-
-                <!-- Manual Mode -->
-                <div id="ctrl-manual" class="control-section">
-                    <div class="slider-box">
-                        <div class="slider-label">
-                            <span>Deslizamiento (s)</span>
-                            <span id="slip_disp" class="slider-value">0.03</span>
-                        </div>
-                        <input type="range" id="slip_slider" min="0.001" max="1" step="0.001" value="0.03">
-                    </div>
-                    <p style="font-size: 0.75rem; color: var(--danger);">* Modo laboratorio: Fija la velocidad ignorando la inercia.</p>
-                </div>
-            </div>
-        </aside>
-
-        <!-- ======== MAIN CONTENT ======== -->
-        <main class="main-content">
-
-            <!-- KPI Grid -->
-            <div class="kpi-grid">
-                <div class="kpi-box">
-                    <div class="kpi-value" id="kpi_rpm">0</div>
-                    <div class="kpi-label">RPM</div>
-                </div>
-                <div class="kpi-box">
-                    <div class="kpi-value" id="kpi_current">0</div>
-                    <div class="kpi-label">Corriente (A)</div>
-                </div>
-                <div class="kpi-box">
-                    <div class="kpi-value" id="kpi_torque">0</div>
-                    <div class="kpi-label">Par Motor (Nm)</div>
-                </div>
-                <div class="kpi-box success">
-                    <div class="kpi-value" id="kpi_eff">0%</div>
-                    <div class="kpi-label">Eficiencia</div>
-                </div>
-                <div class="kpi-box">
-                    <div class="kpi-value" id="kpi_pout">0</div>
-                    <div class="kpi-label">Pot. Eje (kW)</div>
-                </div>
-                <div class="kpi-box">
-                    <div class="kpi-value" id="kpi_pf">0</div>
-                    <div class="kpi-label">Cos φ</div>
-                </div>
-            </div>
-
-            <!-- Visualization Card -->
-            <div class="card viz-card">
-                <div class="card-header">
-                    <div style="display:flex; align-items:center; gap:12px;">
-                        <div class="card-title"><span class="icon">📊</span> Monitor</div>
-                        <button class="btn btn-outline btn-sm" onclick="VEMLAB.App.toggleView()">📊 / ⚡ Cambiar Vista</button>
-                    </div>
-                    <div id="motor_status" class="status-tag st-run">✓ EN MARCHA</div>
-                </div>
-
-                <div class="sim-layout">
-                    <div class="view-container">
-                        <canvas id="scopeCanvas" width="600" height="300"></canvas>
-
-                        <div id="circuitView">
-                            <svg viewBox="0 0 600 300" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
-                                <defs>
-                                    <g id="resistor-h">
-                                        <path d="M0,0 L10,0 L15,-8 L25,8 L35,-8 L45,8 L50,0 L60,0" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </g>
-                                    <g id="inductor-h">
-                                        <path d="M0,0 L10,0 Q15,-12 20,0 Q25,-12 30,0 Q35,-12 40,0 L50,0" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </g>
-                                    <g id="resistor-v">
-                                        <path d="M0,0 L0,10 L-8,15 L8,25 L-8,35 L8,45 L0,50 L0,60" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </g>
-                                    <g id="inductor-v">
-                                        <path d="M0,0 L0,10 Q12,15 0,20 Q12,25 0,30 Q12,35 0,40 L0,50" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </g>
-                                </defs>
-                                <!-- Wires -->
-                                <line x1="20" y1="50" x2="60" y2="50" stroke="#475569" stroke-width="2"/>
-                                <line x1="120" y1="50" x2="140" y2="50" stroke="#475569" stroke-width="2"/>
-                                <line x1="190" y1="50" x2="290" y2="50" stroke="#475569" stroke-width="2"/>
-                                <line x1="340" y1="50" x2="370" y2="50" stroke="#475569" stroke-width="2"/>
-                                <line x1="430" y1="50" x2="460" y2="50" stroke="#475569" stroke-width="2"/>
-                                <line x1="520" y1="50" x2="550" y2="50" stroke="#475569" stroke-width="2"/>
-                                <line x1="20" y1="250" x2="580" y2="250" stroke="#475569" stroke-width="2"/>
-                                <!-- R1 -->
-                                <use href="#resistor-h" x="60" y="50" stroke="#6366f1"/>
-                                <text x="90" y="35" text-anchor="middle" class="circuit-text">R1</text>
-                                <text id="val_pr1" x="90" y="80" text-anchor="middle" class="circuit-val power-active">0 W</text>
-                                <!-- X1 -->
-                                <use href="#inductor-h" x="140" y="50" stroke="#f59e0b"/>
-                                <text x="165" y="35" text-anchor="middle" class="circuit-text">X1</text>
-                                <text id="val_qx1" x="165" y="80" text-anchor="middle" class="circuit-val power-reactive">0 VAR</text>
-                                <!-- X2' -->
-                                <use href="#inductor-h" x="290" y="50" stroke="#f59e0b"/>
-                                <text x="315" y="35" text-anchor="middle" class="circuit-text">X2'</text>
-                                <text id="val_qx2" x="315" y="80" text-anchor="middle" class="circuit-val power-reactive">0 VAR</text>
-                                <!-- R2' -->
-                                <use href="#resistor-h" x="370" y="50" stroke="#6366f1"/>
-                                <text x="400" y="35" text-anchor="middle" class="circuit-text">R2'</text>
-                                <text id="val_pr2" x="400" y="80" text-anchor="middle" class="circuit-val power-active">0 W</text>
-                                <!-- R.Ext -->
-                                <use href="#resistor-h" x="460" y="50" stroke="#f59e0b"/>
-                                <text x="490" y="35" text-anchor="middle" class="circuit-text">R.Ext</text>
-                                <text id="val_prext" x="490" y="80" text-anchor="middle" class="circuit-val power-active">0 W</text>
-                                <!-- Parallel branch -->
-                                <line x1="240" y1="50" x2="240" y2="90" stroke="#475569" stroke-width="2"/>
-                                <line x1="210" y1="90" x2="270" y2="90" stroke="#475569" stroke-width="2"/>
-                                <use href="#resistor-v" x="210" y="90" stroke="#6366f1"/>
-                                <text x="200" y="125" text-anchor="end" class="circuit-text">Rc</text>
-                                <text id="val_prc" x="200" y="140" text-anchor="end" class="circuit-val power-active">0 W</text>
-                                <use href="#inductor-v" x="270" y="90" stroke="#f59e0b"/>
-                                <text x="285" y="120" text-anchor="start" class="circuit-text">Xm</text>
-                                <text id="val_qxm" x="285" y="135" text-anchor="start" class="circuit-val power-reactive">0 VAR</text>
-                                <!-- Bottom connections -->
-                                <line x1="210" y1="150" x2="210" y2="170" stroke="#475569" stroke-width="2"/>
-                                <line x1="270" y1="140" x2="270" y2="170" stroke="#475569" stroke-width="2"/>
-                                <line x1="210" y1="170" x2="270" y2="170" stroke="#475569" stroke-width="2"/>
-                                <line x1="240" y1="170" x2="240" y2="250" stroke="#475569" stroke-width="2"/>
-                                <line x1="550" y1="50" x2="550" y2="80" stroke="#475569" stroke-width="2"/>
-                                <!-- Mechanical load -->
-                                <g transform="translate(550, 80)">
-                                    <use href="#resistor-v" x="0" y="0" stroke="#10b981"/>
-                                    <line x1="-15" y1="50" x2="15" y2="10" stroke="#10b981" stroke-width="2"/>
-                                    <polygon points="15,10 10,18 5,10" fill="#10b981" transform="rotate(135 15 10)"/>
-                                </g>
-                                <line x1="550" y1="140" x2="550" y2="250" stroke="#475569" stroke-width="2"/>
-                                <text x="565" y="110" text-anchor="start" class="circuit-text" fill="#10b981">MECÁNICA</text>
-                                <text id="val_pmech" x="565" y="130" text-anchor="start" class="circuit-val power-mech">0 kW</text>
-                                <text x="15" y="40" fill="#fff" font-size="12" font-weight="bold">V1</text>
-                                <text x="15" y="245" fill="#94a3b8" font-size="10">N</text>
-                            </svg>
-                        </div>
-                    </div>
-
-                    <!-- Rotor Gauge -->
-                    <div class="gauge-container">
-                        <svg width="140" height="140" viewBox="0 0 100 100">
-                            <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
-                            <g id="rotorVis" transform-origin="50 50">
-                                <circle cx="50" cy="50" r="40" fill="#1e293b" stroke="var(--text-muted)" stroke-width="1"/>
-                                <line x1="50" y1="50" x2="50" y2="10" stroke="var(--secondary)" stroke-width="4" stroke-linecap="round"/>
-                                <circle cx="50" cy="50" r="5" fill="#fff"/>
-                                <path d="M50 50 L80 80 M50 50 L20 80 M50 50 L50 10" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
-                            </g>
-                        </svg>
-                        <div class="gauge-label">Deslizamiento</div>
-                        <div id="slip_val_ui" class="gauge-value">3.0%</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Torque-Speed Curve -->
-            <div class="card curve-card">
-                <div class="card-header">
-                    <div class="card-title"><span class="icon">📈</span> Punto de Operación Dinámico</div>
-                </div>
-                <div style="height: 280px; width: 100%;">
-                    <canvas id="curveCanvas"></canvas>
-                </div>
-            </div>
-
-            <!-- ============================================
-                 CHALLENGE SECTION
-                 ============================================ -->
-            <div class="challenge-section">
-                <div class="card challenge-card">
-                    <div class="card-header">
-                        <div class="card-title"><span class="icon">🎯</span> Desafío: <span id="ch-title"></span></div>
-                        <span id="ch-badge" class="challenge-badge badge-easy">Fácil</span>
-                    </div>
-
-                    <div class="challenge-body">
-                        <p class="challenge-description" id="ch-description"></p>
-
-                        <div class="challenge-input-row">
-                            <input type="number" class="challenge-input" id="ch-input" placeholder="Tu respuesta..." step="any">
-                            <div class="challenge-unit" id="ch-unit">RPM</div>
-                            <button class="btn-submit" id="ch-submit">Comprobar</button>
-                        </div>
-
-                        <div id="ch-feedback" class="challenge-feedback"></div>
-                        <div id="ch-hints-area"></div>
-                    </div>
-
-                    <div class="challenge-nav">
-                        <div>
-                            <button class="challenge-hint-btn" id="ch-hint-btn">💡 Pista</button>
-                        </div>
-                        <span class="challenge-progress-text" id="ch-progress-text">1 / 7</span>
-                        <div class="challenge-nav-btns">
-                            <button class="btn btn-outline btn-sm" id="ch-prev">◀ Anterior</button>
-                            <button class="btn btn-outline btn-sm" id="ch-next">Siguiente ▶</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Progress Card -->
-                <div class="card" style="margin-top: 10px;">
-                    <div class="card-header">
-                        <div class="card-title"><span class="icon">📊</span> Progreso</div>
-                        <span id="ch-solved-count" style="font-size:0.8rem; color:var(--text-muted); font-family:'JetBrains Mono',monospace;">0 / 7 resueltos</span>
-                    </div>
-                    <div class="progress-bar-container">
-                        <div class="progress-bar-fill" id="ch-progress-fill" style="width: 0%;"></div>
-                    </div>
-                </div>
-            </div>
-
-        </main>
-    </div>
-
-    <!-- Scripts (order matters) -->
-    <script src="js/physics.js"></script>
-    <script src="js/challenges.js"></script>
+    <script src="js/core.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/schematics.js"></script>
+    <script src="js/transformer.js"></script>
+    <script src="js/async.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
