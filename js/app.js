@@ -1,240 +1,271 @@
 /* =====================================================================
-   VEMLAB · Aplicación
-   Navegación (#máquina/práctica), parámetros de cada máquina,
-   código de práctica (máquina con parámetros ocultos), ajustes y tema.
+   VEMLAB · Banco de pruebas
+   Una pantalla por máquina:
+     1. Parámetros calculados en el laboratorio
+     2. Conexión (vacío / cortocircuito / carga) y alimentación
+     3. Diagrama + lecturas del simulador frente a las medidas del alumno
    ===================================================================== */
 (function () {
     'use strict';
-    var VEM = window.VEM, ui = VEM.ui, fmt = VEM.fmt, store = VEM.store;
+    var VEM = window.VEM, fmt = VEM.fmt, store = VEM.store;
+    var $ = function (id) { return document.getElementById(id); };
 
-    /* ---------------- Ajustes ---------------- */
-    VEM.settings = Object.assign({ noise: true, code: '', reveal: false, theme: 'auto' }, store.get('settings', {}));
-    function saveSettings() { store.set('settings', VEM.settings); }
+    var M = null;          /* máquina activa */
+    var st = null;         /* estado de la máquina activa */
 
-    function machine(id) { return VEM.machines.filter(function (m) { return m.id === id; })[0]; }
-
-    /* ---------------- Parámetros ---------------- */
-    function round3(v) {
-        if (!v) return v;
-        var d = Math.pow(10, 2 - Math.floor(Math.log10(Math.abs(v))));
-        return Math.round(v * d) / d;
+    function defaults(m) {
+        var P = {}; m.params.forEach(function (d) { P[d.k] = d.def; });
+        return P;
     }
-    VEM.params = {
-        get: function (id) {
-            var M = machine(id);
-            if (VEM.settings.code) {
-                var rnd = VEM.rng(VEM.settings.code.trim().toUpperCase() + '|' + id);
-                var P = Object.assign({}, M.defaults);
-                M.defs.forEach(function (d) { if (d.vary) P[d.k] = round3(M.defaults[d.k] * (1 + d.vary * (2 * rnd() - 1))); });
-                M.defs.forEach(function (d) { if (d.tie) P[d.k] = P[d.tie]; });
-                return P;
-            }
-            return Object.assign({}, M.defaults, store.get('params.' + id, {}));
-        },
-        set: function (id, P) { store.set('params.' + id, P); },
-        reset: function (id) { store.del('params.' + id); },
-        hidden: function () { return !!VEM.settings.code && !VEM.settings.reveal; }
-    };
-
-    function clearMachineData(id) {
-        var M = machine(id);
-        (M.tables || []).forEach(function (k) { store.del('table.' + k); });
-        (M.extraKeys || []).forEach(function (k) { store.del(k); });
+    function loadState(m) {
+        var s = store.get('state.' + m.id, null) || {};
+        s.P = Object.assign(defaults(m), s.P || {});
+        s.mode = s.mode || m.modes[0].id;
+        s.supply = s.supply || {};
+        s.load = s.load || {};
+        s.meas = s.meas || {};
+        m.load(s.P).forEach(function (d) { if (s.load[d.k] === undefined) s.load[d.k] = d.def; });
+        return s;
     }
-    function hasData(id) {
-        return (machine(id).tables || []).some(function (k) { return store.get('table.' + k, []).length > 0; });
-    }
+    function save() { store.set('state.' + M.id, st); }
 
-    /* ---------------- Tarjetas comunes de la página «Máquina» ---------------- */
-    function plateCard(parent, title, rows, note) {
-        var body = ui.card(parent, title, 'plate');
-        body.innerHTML = '<dl class="plate-list">' + rows.map(function (r) {
-            return '<div><dt>' + r[0] + (r[2] ? ' *' : '') + '</dt><dd>' + r[1] + '</dd></div>';
-        }).join('') + '</dl>' + (note ? '<p class="card-intro">' + note + '</p>' : '');
-    }
-
-    function paramsCard(parent, id, defs, P) {
-        var hidden = VEM.params.hidden(), coded = !!VEM.settings.code;
-        var body = ui.card(parent, 'Parámetros de la máquina', 'params');
-        if (coded) {
-            body.insertAdjacentHTML('beforeend', '<div class="notice">Máquina asignada por el código de práctica <strong>' + VEM.esc(VEM.settings.code) + '</strong>. ' +
-                (hidden ? 'Los parámetros del circuito equivalente están <strong>ocultos</strong>: identifícalos con los ensayos.' : 'Parámetros visibles (modo profesor).') + '</div>');
+    /* ---------------- Mando: deslizador + número ---------------- */
+    function control(parent, o, onChange) {
+        var w = document.createElement('div');
+        w.className = 'control';
+        w.innerHTML = '<div class="control-head"><label>' + o.label + '</label><span class="control-val">' +
+            '<input type="text" inputmode="decimal" class="num"><span class="unit">' + (o.unit || '') + '</span></span></div>' +
+            '<input type="range" min="' + o.min + '" max="' + o.max + '" step="' + o.step + '" aria-label="' + o.label.replace(/<[^>]+>/g, '') + '">';
+        parent.appendChild(w);
+        var num = w.querySelector('.num'), rng = w.querySelector('input[type=range]');
+        var dec = o.step < 1 ? (o.step < 0.1 ? 2 : 1) : 0;
+        function set(v, fire) {
+            v = VEM.clamp(v, o.min, o.max);
+            rng.value = v; num.value = fmt(v, dec);
+            if (fire) onChange(v);
         }
-        var form = ui.h('<form class="param-form" novalidate></form>');
-        defs.forEach(function (d) {
-            var isHidden = hidden && !d.plate;
-            var input;
-            if (d.select) {
-                input = '<select name="' + d.k + '"' + (coded ? ' disabled' : '') + '>' + d.select.map(function (o) {
-                    return '<option value="' + o[0] + '"' + (P[d.k] === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
-                }).join('') + '</select>';
-            } else if (isHidden) {
-                input = '<input type="text" value="oculto" disabled class="is-hidden">';
-            } else {
-                input = '<input type="text" inputmode="decimal" name="' + d.k + '" value="' + String(+Number(P[d.k]).toPrecision(6)).replace('.', ',') + '"' + (coded || d.tie ? ' disabled' : '') + '>';
-            }
-            form.insertAdjacentHTML('beforeend', '<label class="param"><span class="param-label">' + d.label + '</span><span class="param-input">' + input +
-                '<span class="unit">' + (d.unit || '') + '</span></span>' + (d.tie && !isHidden ? '<span class="param-tie">= ' + d.tie.replace(/(\d)/, '<sub>$1</sub>') + '</span>' : '') + '</label>');
+        rng.addEventListener('input', function () { set(parseFloat(rng.value), true); });
+        num.addEventListener('change', function () {
+            var v = VEM.parseNum(num.value);
+            if (isFinite(v)) set(v, true); else set(parseFloat(rng.value), false);
         });
-        if (!coded) {
-            form.insertAdjacentHTML('beforeend', '<div class="btn-row param-actions"><button type="submit" class="btn btn-primary">Aplicar cambios</button>' +
-                '<button type="button" class="btn btn-ghost" data-reset>Valores por defecto</button></div>' +
-                '<p class="card-intro">Puedes introducir los datos de la máquina real del laboratorio para que el simulador se parezca a ella.</p>');
-        }
-        body.appendChild(form);
-        function confirmChange() {
-            if (!hasData(id)) return true;
-            return window.confirm('Al cambiar la máquina se borrarán las medidas registradas de sus ensayos. ¿Continuar?');
-        }
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            var NP = Object.assign({}, P), bad = [];
-            defs.forEach(function (d) {
-                var el = form.elements[d.k];
-                if (!el || el.disabled) return;
-                if (d.select) { NP[d.k] = el.value; return; }
-                var v = VEM.parseNum(el.value);
-                if (!isFinite(v) || v < (d.min || 0)) { bad.push(d.label.replace(/<[^>]+>/g, '')); el.classList.add('bad'); }
-                else { NP[d.k] = d.step === 1 ? Math.round(v) : v; el.classList.remove('bad'); }
+        num.addEventListener('keydown', function (e) { if (e.key === 'Enter') num.blur(); });
+        set(o.value, false);
+        return { el: w, set: set };
+    }
+
+    function segmented(parent, options, value, onChange, cls) {
+        var w = document.createElement('div');
+        w.className = 'segmented ' + (cls || '');
+        w.setAttribute('role', 'radiogroup');
+        options.forEach(function (o) {
+            var b = document.createElement('button');
+            b.type = 'button'; b.setAttribute('role', 'radio');
+            b.innerHTML = o[1];
+            b.className = o[0] === value ? 'on' : '';
+            b.setAttribute('aria-checked', o[0] === value);
+            b.addEventListener('click', function () { onChange(o[0]); });
+            w.appendChild(b);
+        });
+        parent.appendChild(w);
+        return w;
+    }
+
+    /* ---------------- 1. Parámetros ---------------- */
+    function renderParams() {
+        var box = $('params-form');
+        box.innerHTML = '';
+        var group = null;
+        M.params.forEach(function (d) {
+            if (d.group !== group) {
+                group = d.group;
+                box.insertAdjacentHTML('beforeend', '<h3 class="group">' + group + '</h3>');
+            }
+            var lab = document.createElement('label');
+            lab.className = 'param';
+            lab.innerHTML = '<span class="param-label">' + d.label + '</span><span class="param-input">' +
+                '<input type="text" inputmode="decimal" value="' + VEM.fmtIn(st.P[d.k]) + '" autocomplete="off">' +
+                '<span class="unit">' + d.unit + '</span></span>';
+            var inp = lab.querySelector('input');
+            inp.addEventListener('input', function () {
+                var v = VEM.parseNum(inp.value);
+                var ok = isFinite(v) && (d.k === 'Pm' ? v >= 0 : v > 0) && (!d.int || Math.round(v) === v);
+                inp.classList.toggle('bad', !ok);
+                if (!ok) return;
+                st.P[d.k] = v; save();
+                renderControls(); update();
             });
-            defs.forEach(function (d) { if (d.tie) NP[d.k] = NP[d.tie]; });
-            if (bad.length) { ui.toast('Valor no válido: ' + bad.join(', ')); return; }
-            if (!confirmChange()) return;
-            clearMachineData(id);
-            VEM.params.set(id, NP);
-            ui.toast('Parámetros aplicados');
-            route();
-        });
-        var rb = form.querySelector('[data-reset]');
-        if (rb) rb.addEventListener('click', function () {
-            if (!confirmChange()) return;
-            clearMachineData(id);
-            VEM.params.reset(id);
-            ui.toast('Valores por defecto restaurados');
-            route();
+            box.appendChild(lab);
         });
     }
 
-    VEM.app = { plateCard: plateCard, paramsCard: paramsCard };
-
-    /* ---------------- Navegación ---------------- */
-    var dom = {};
-    function parseHash() {
-        var h = (location.hash || '').replace(/^#\/?/, '').split('/');
-        var M = machine(h[0]) || VEM.machines[0];
-        var pr = M.practices.filter(function (p) { return p.id === h[1]; })[0] || M.practices[0];
-        return { M: M, pr: pr };
+    /* ---------------- 2. Conexión ---------------- */
+    function renderModes() {
+        var box = $('modes');
+        box.innerHTML = '';
+        segmented(box, M.modes.map(function (m) { return [m.id, m.label]; }), st.mode, function (id) {
+            st.mode = id; save(); renderModes(); renderControls(); update();
+        }, 'big');
+        var mode = M.modes.filter(function (m) { return m.id === st.mode; })[0];
+        $('mode-help').innerHTML = mode.help;
     }
 
-    function route() {
-        var r = parseHash();
-        dom.tabs.forEach(function (t) {
-            var on = t.getAttribute('data-m') === r.M.id;
-            t.classList.toggle('on', on);
-            t.setAttribute('aria-selected', on);
+    function renderControls() {
+        var box = $('controls');
+        box.innerHTML = '';
+        var sp = M.supply(st.mode, st.P);
+        var v0 = st.supply[st.mode];
+        if (v0 === undefined || v0 > sp.max) v0 = sp.def;
+        var sup = control(box, { label: sp.label, unit: sp.unit, min: sp.min, max: sp.max, step: sp.step, value: v0 }, function (v) {
+            st.supply[st.mode] = v; save(); update();
         });
-        dom.subnav.innerHTML = r.M.practices.map(function (p, i) {
-            return '<a href="#' + r.M.id + '/' + p.id + '" class="' + (p === r.pr ? 'on' : '') + '"' + (p === r.pr ? ' aria-current="page"' : '') + '>' +
-                (p.id === 'maquina' ? '' : '<span class="step">' + i + '</span>') + p.name + '</a>';
+        st.supply[st.mode] = VEM.clamp(v0, sp.min, sp.max);
+        if (sp.quick) {
+            var q = document.createElement('button');
+            q.type = 'button'; q.className = 'btn btn-ghost btn-sm';
+            q.innerHTML = sp.quick.label;
+            q.addEventListener('click', function () { sup.set(+sp.quick.v.toFixed(2), true); });
+            sup.el.appendChild(q);
+        }
+        if (st.mode !== 'carga') return;
+        var loadBox = document.createElement('div');
+        loadBox.className = 'load-box';
+        loadBox.innerHTML = '<h3 class="group">Carga conectada</h3>';
+        box.appendChild(loadBox);
+        M.load(st.P).forEach(function (d) {
+            if (d.hideIf && Object.keys(d.hideIf).some(function (k) { return st.load[k] === d.hideIf[k]; })) return;
+            if (d.seg) {
+                var w = document.createElement('div');
+                w.className = 'control';
+                w.innerHTML = '<div class="control-head"><label>' + d.label + '</label></div>';
+                loadBox.appendChild(w);
+                segmented(w, d.seg, st.load[d.k], function (v) { st.load[d.k] = v; save(); renderControls(); update(); });
+                return;
+            }
+            var v = VEM.clamp(st.load[d.k], d.min, d.max);
+            st.load[d.k] = v;
+            control(loadBox, { label: d.label, unit: d.unit, min: d.min, max: d.max, step: d.step, value: v }, function (x) {
+                st.load[d.k] = x; save(); update();
+            });
+        });
+    }
+
+    /* ---------------- 3. Diagrama y lecturas ---------------- */
+    function diffClass(d) {
+        var a = Math.abs(d);
+        return a <= 5 ? 'ok' : (a <= 10 ? 'warn' : 'bad');
+    }
+
+    function update() {
+        var r;
+        try { r = M.solve(st.P, st.mode, st.supply[st.mode], st.load); }
+        catch (e) { console.error(e); return; }
+        $('diagram').innerHTML = M.diagram(st.P, st.mode, r, st.load);
+        $('alarm').hidden = !r.stalled;
+        if (r.stalled) $('alarm').innerHTML = 'Con esta tensión el motor no vence sus pérdidas mecánicas y se para. Sube la tensión.';
+
+        var rows = M.readings(st.mode, r);
+        var meas = st.meas[st.mode] = st.meas[st.mode] || {};
+        var tb = $('readings-body');
+        var focused = document.activeElement && document.activeElement.getAttribute('data-k');
+        tb.innerHTML = rows.map(function (row) {
+            var mv = meas[row.k];
+            var cell = row.noCompare ? '<td class="na">—</td><td></td>' :
+                '<td><input type="text" inputmode="decimal" data-k="' + row.k + '" value="' + (mv !== undefined ? VEM.fmtIn(mv) : '') + '" placeholder="—" aria-label="Tu medida de ' + row.label.replace(/<[^>]+>/g, '') + '"></td>' +
+                '<td class="diff" data-d="' + row.k + '"></td>';
+            return '<tr><th scope="row">' + row.label + (row.unit ? ' <span class="unit">(' + row.unit + ')</span>' : '') + '</th>' +
+                '<td class="sim">' + fmt(row.v, row.dec) + '</td>' + cell + '</tr>';
         }).join('');
-        dom.view.innerHTML = '';
-        var head = ui.h('<div class="page-head"><h1>' + r.pr.name + '</h1><p>' + r.M.name +
-            (VEM.settings.code ? ' · <span class="pill">Código ' + VEM.esc(VEM.settings.code) + (VEM.params.hidden() ? ' · parámetros ocultos' : '') + '</span>' : '') + '</p></div>');
-        dom.view.appendChild(head);
-        try {
-            r.pr.render(dom.view, VEM.params.get(r.M.id));
-        } catch (e) {
-            console.error(e);
-            dom.view.insertAdjacentHTML('beforeend', '<div class="alarm">Error al calcular con estos parámetros. Revisa los valores en «Máquina» o restaura los valores por defecto.</div>');
+        function showDiff(row) {
+            var cell = tb.querySelector('[data-d="' + row.k + '"]');
+            if (!cell) return;
+            var mv = meas[row.k];
+            if (mv === undefined || !isFinite(mv) || mv === 0 || !isFinite(row.v)) { cell.textContent = ''; cell.className = 'diff'; return; }
+            var d = (row.v - mv) / Math.abs(mv) * 100;
+            cell.textContent = (d > 0 ? '+' : '') + fmt(d, 1) + ' %';
+            cell.className = 'diff ' + diffClass(d);
         }
-        store.set('lastRoute', r.M.id + '/' + r.pr.id);
-        var active = dom.subnav.querySelector('.on');
-        if (active && active.scrollIntoView) active.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        rows.forEach(showDiff);
+        tb.querySelectorAll('input[data-k]').forEach(function (inp) {
+            inp.addEventListener('input', function () {
+                var k = inp.getAttribute('data-k'), v = VEM.parseNum(inp.value);
+                if (inp.value.trim() === '') delete meas[k]; else if (isFinite(v)) meas[k] = v;
+                inp.classList.toggle('bad', inp.value.trim() !== '' && !isFinite(v));
+                save();
+                showDiff(rows.filter(function (x) { return x.k === k; })[0]);
+                summary(rows);
+            });
+        });
+        if (focused) {
+            var f = tb.querySelector('[data-k="' + focused + '"]');
+            if (f) { f.focus(); var l = f.value.length; f.setSelectionRange(l, l); }
+        }
+        summary(rows);
     }
 
-    /* ---------------- Tema ---------------- */
-    function applyTheme() {
-        var t = VEM.settings.theme;
-        if (t === 'auto') document.documentElement.removeAttribute('data-theme');
-        else document.documentElement.setAttribute('data-theme', t);
-        var dark = t === 'dark' || (t === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        dom.themeBtn.textContent = dark ? '☀' : '☾';
-        dom.themeBtn.title = dark ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro';
-        requestAnimationFrame(VEM.redrawAll);
+    function summary(rows) {
+        var meas = st.meas[st.mode] || {}, n = 0, worst = 0;
+        rows.forEach(function (row) {
+            var mv = meas[row.k];
+            if (row.noCompare || mv === undefined || !isFinite(mv) || mv === 0 || !isFinite(row.v)) return;
+            n++; worst = Math.max(worst, Math.abs((row.v - mv) / mv * 100));
+        });
+        var el = $('verdict');
+        if (!n) {
+            el.className = 'verdict';
+            el.innerHTML = 'Escribe en la columna <strong>Tu medida</strong> lo que mediste en el laboratorio en las mismas condiciones (misma conexión y misma tensión).';
+            return;
+        }
+        var c = diffClass(worst);
+        el.className = 'verdict ' + c;
+        el.innerHTML = c === 'ok' ? '✓ Tus parámetros reproducen tus medidas (todas las diferencias ≤ 5 %).' :
+            c === 'warn' ? 'Diferencias moderadas (máx. ' + fmt(worst, 1) + ' %). Revisa los cálculos o la precisión de las medidas.' :
+                '✗ Alguna diferencia supera el 10 % (máx. ' + fmt(worst, 1) + ' %). Revisa el parámetro relacionado con esa medida.';
     }
 
-    /* ---------------- Ajustes (diálogo) ---------------- */
-    function openSettings() {
-        var d = dom.dialog;
-        d.querySelector('#set-noise').checked = VEM.settings.noise;
-        d.querySelector('#set-code').value = VEM.settings.code;
-        d.querySelector('#set-reveal').checked = VEM.settings.reveal;
-        d.querySelector('#set-reveal-row').hidden = !VEM.settings.code;
-        if (d.showModal) d.showModal(); else d.setAttribute('open', '');
-    }
-    function bindSettings() {
-        var d = dom.dialog;
-        d.querySelector('#set-noise').addEventListener('change', function () { VEM.settings.noise = this.checked; saveSettings(); route(); });
-        d.querySelector('#set-reveal').addEventListener('change', function () { VEM.settings.reveal = this.checked; saveSettings(); route(); });
-        d.querySelector('#set-code-apply').addEventListener('click', function () {
-            var c = d.querySelector('#set-code').value.trim().toUpperCase();
-            if (c === VEM.settings.code) return;
-            if (VEM.machines.some(function (M) { return hasData(M.id); }) &&
-                !window.confirm('Al cambiar de máquina se borrarán todas las medidas registradas. ¿Continuar?')) return;
-            VEM.machines.forEach(function (M) { clearMachineData(M.id); });
-            VEM.settings.code = c; VEM.settings.reveal = false; saveSettings();
-            d.querySelector('#set-code').value = c;
-            d.querySelector('#set-reveal').checked = false;
-            d.querySelector('#set-reveal-row').hidden = !c;
-            ui.toast(c ? 'Máquina del código ' + c + ' cargada' : 'Código eliminado');
-            route();
+    /* ---------------- Máquina activa ---------------- */
+    function select(id) {
+        M = VEM.machines.filter(function (m) { return m.id === id; })[0] || VEM.machines[0];
+        st = loadState(M);
+        store.set('machine', M.id);
+        document.querySelectorAll('[data-m]').forEach(function (b) {
+            var on = b.getAttribute('data-m') === M.id;
+            b.classList.toggle('on', on); b.setAttribute('aria-selected', on);
         });
-        d.querySelector('#set-code').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); d.querySelector('#set-code-apply').click(); } });
-        d.querySelector('#set-code-clear').addEventListener('click', function () {
-            d.querySelector('#set-code').value = '';
-            d.querySelector('#set-code-apply').click();
-        });
-        d.querySelector('#set-clear').addEventListener('click', function () {
-            if (!window.confirm('¿Borrar todas las medidas registradas de las dos máquinas?')) return;
-            VEM.machines.forEach(function (M) { clearMachineData(M.id); });
-            ui.toast('Medidas borradas');
-            route();
-        });
-        d.querySelector('[data-close]').addEventListener('click', function () { if (d.close) d.close(); else d.removeAttribute('open'); });
-        d.addEventListener('click', function (e) { if (e.target === d && d.close) d.close(); });
+        $('machine-sub').textContent = M.subtitle;
+        $('params-note').innerHTML = M.note || '';
+        renderParams(); renderModes(); renderControls(); update();
     }
 
-    /* ---------------- Inicio ---------------- */
+    function applyTheme(t) {
+        if (t) document.documentElement.setAttribute('data-theme', t);
+        var cur = document.documentElement.getAttribute('data-theme');
+        var dark = cur ? cur === 'dark' : window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches;
+        $('btn-theme').textContent = dark ? '☀' : '☾';
+        $('btn-theme').title = dark ? 'Tema claro' : 'Tema oscuro';
+        return dark;
+    }
+
     function init() {
-        dom.tabs = Array.prototype.slice.call(document.querySelectorAll('[data-m]'));
-        dom.subnav = document.getElementById('subnav');
-        dom.view = document.getElementById('view');
-        dom.dialog = document.getElementById('settings');
-        dom.themeBtn = document.getElementById('btn-theme');
-
-        dom.tabs.forEach(function (t) {
-            t.addEventListener('click', function () { location.hash = '#' + t.getAttribute('data-m') + '/maquina'; });
+        document.querySelectorAll('[data-m]').forEach(function (b) {
+            b.addEventListener('click', function () { select(b.getAttribute('data-m')); });
         });
-        document.getElementById('btn-settings').addEventListener('click', openSettings);
-        dom.themeBtn.addEventListener('click', function () {
-            var dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
-                (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
-            VEM.settings.theme = dark ? 'light' : 'dark'; saveSettings(); applyTheme();
+        $('btn-defaults').addEventListener('click', function () {
+            if (!window.confirm('¿Sustituir tus parámetros por los valores de ejemplo?')) return;
+            st.P = defaults(M); save(); renderParams(); renderControls(); update();
         });
-        if (window.matchMedia) {
-            var mq = window.matchMedia('(prefers-color-scheme: dark)');
-            if (mq.addEventListener) mq.addEventListener('change', applyTheme);
-        }
-        bindSettings();
-        applyTheme();
-        window.addEventListener('hashchange', function () { route(); window.scrollTo(0, 0); });
-        if (!location.hash) {
-            var last = store.get('lastRoute', null);
-            if (last) history.replaceState(null, '', '#' + last);
-        }
-        route();
+        $('btn-clear').addEventListener('click', function () {
+            st.meas[st.mode] = {}; save(); update();
+        });
+        var t = store.get('theme', null);
+        applyTheme(t);
+        $('btn-theme').addEventListener('click', function () {
+            var dark = applyTheme();
+            store.set('theme', dark ? 'light' : 'dark');
+            applyTheme(dark ? 'light' : 'dark');
+        });
+        select(store.get('machine', VEM.machines[0].id));
     }
 
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

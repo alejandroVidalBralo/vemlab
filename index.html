@@ -3,72 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="VEMLAB · Laboratorio virtual de máquinas eléctricas: ensayos del transformador y del motor asíncrono como complemento a las prácticas de laboratorio.">
+    <meta name="description" content="VEMLAB · Comprueba con el circuito equivalente los parámetros del transformador y del motor asíncrono calculados en el laboratorio.">
     <title>VEMLAB · Laboratorio virtual de máquinas eléctricas</title>
-    <link rel="stylesheet" href="css/main.css?v=2">
+    <link rel="stylesheet" href="css/main.css?v=3">
 </head>
 <body>
     <header class="topbar">
         <div class="brand">
-            <span class="brand-mark" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 12c1.4-3 2.8-3 4.1 0s2.7 3 4.1 0 2.4-2.4 2.8-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </span>
+            <svg class="brand-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 12c1.4-3 2.8-3 4.1 0s2.7 3 4.1 0 2.4-2.4 2.8-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             <span class="brand-name">VEMLAB</span>
-            <span class="brand-sub">Laboratorio virtual de máquinas eléctricas</span>
         </div>
         <nav class="machine-tabs" role="tablist" aria-label="Máquina">
-            <button type="button" role="tab" data-m="async">Máquina asíncrona</button>
+            <button type="button" role="tab" data-m="motor">Máquina asíncrona</button>
             <button type="button" role="tab" data-m="trafo">Transformador</button>
         </nav>
-        <div class="top-actions">
-            <button type="button" class="icon-btn lg" id="btn-theme" aria-label="Cambiar tema">☾</button>
-            <button type="button" class="icon-btn lg" id="btn-settings" title="Ajustes" aria-label="Ajustes">⚙</button>
-        </div>
+        <button type="button" class="icon-btn" id="btn-theme" aria-label="Cambiar tema">☾</button>
     </header>
 
-    <nav class="subnav" id="subnav" aria-label="Prácticas"></nav>
+    <main class="bench">
+        <p class="howto"><span id="machine-sub"></span> · Introduce los parámetros que has calculado, conecta la máquina como en el laboratorio y compara lo que da el simulador con lo que mediste.</p>
 
-    <main id="view" class="view"></main>
+        <div class="layout">
+            <aside class="card params">
+                <div class="card-head">
+                    <h2><span class="num-badge">1</span>Tus parámetros</h2>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btn-defaults" title="Cargar valores de ejemplo">Ejemplo</button>
+                </div>
+                <div id="params-form" class="params-form"></div>
+                <p class="note" id="params-note"></p>
+            </aside>
 
-    <footer class="footer">
-        <p>VEMLAB es un <strong>complemento</strong> a las prácticas: prepara los ensayos antes de la sesión y contrasta después tus medidas reales.
-            Modelo de régimen permanente con circuito equivalente; las lecturas incluyen un pequeño error de medida (desactivable en ⚙).</p>
-    </footer>
+            <div class="work">
+                <section class="card conn">
+                    <div class="card-head"><h2><span class="num-badge">2</span>Conexión</h2></div>
+                    <div id="modes"></div>
+                    <p class="mode-help" id="mode-help"></p>
+                    <div id="controls" class="controls"></div>
+                </section>
 
-    <dialog id="settings" class="dialog" aria-labelledby="set-title">
-        <div class="dialog-head">
-            <h2 id="set-title">Ajustes</h2>
-            <button type="button" class="icon-btn" data-close aria-label="Cerrar">×</button>
-        </div>
-        <section class="dialog-sec">
-            <label class="check"><input type="checkbox" id="set-noise"> <span><strong>Error de medida en los instrumentos</strong><br>
-                <small>Añade una pequeña dispersión (≈ 0,3 %) a las lecturas, como en un instrumento real.</small></span></label>
-        </section>
-        <section class="dialog-sec">
-            <h3>Código de práctica</h3>
-            <p><small>Con un código (p. ej. el de cada grupo) se genera una máquina con <strong>parámetros ocultos</strong> distintos para cada código.
-                El alumnado debe identificarlos con los ensayos. El profesor puede introducir el mismo código y mostrar los parámetros para corregir.</small></p>
-            <div class="inline-form">
-                <input type="text" id="set-code" placeholder="p. ej. GRUPO-3" maxlength="24" autocomplete="off" aria-label="Código de práctica">
-                <button type="button" class="btn btn-primary" id="set-code-apply">Cargar</button>
-                <button type="button" class="btn btn-ghost" id="set-code-clear">Quitar</button>
+                <section class="card diag">
+                    <div id="diagram" class="diagram-wrap"></div>
+                    <div id="alarm" class="alarm" hidden></div>
+                </section>
+
+                <section class="card readings">
+                    <div class="card-head">
+                        <h2><span class="num-badge">3</span>Compara con tus medidas</h2>
+                        <button type="button" class="btn btn-ghost btn-sm" id="btn-clear">Borrar medidas</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="cmp">
+                            <thead><tr><th scope="col">Magnitud</th><th scope="col">Simulador</th><th scope="col">Tu medida</th><th scope="col">Diferencia</th></tr></thead>
+                            <tbody id="readings-body"></tbody>
+                        </table>
+                    </div>
+                    <p id="verdict" class="verdict"></p>
+                </section>
             </div>
-            <label class="check" id="set-reveal-row" hidden><input type="checkbox" id="set-reveal"> <span>Mostrar parámetros (profesor)</span></label>
-        </section>
-        <section class="dialog-sec">
-            <h3>Datos</h3>
-            <p><small>Las medidas registradas se guardan en este navegador. Exporta cada tabla a CSV para tu informe.</small></p>
-            <button type="button" class="btn btn-danger" id="set-clear">Borrar todas las medidas</button>
-        </section>
-    </dialog>
+        </div>
+    </main>
 
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
-    <script src="js/core.js?v=2"></script>
-    <script src="js/ui.js?v=2"></script>
-    <script src="js/schematics.js?v=2"></script>
-    <script src="js/transformer.js?v=2"></script>
-    <script src="js/async.js?v=2"></script>
-    <script src="js/app.js?v=2"></script>
+    <script src="js/core.js?v=3"></script>
+    <script src="js/trafo.js?v=3"></script>
+    <script src="js/motor.js?v=3"></script>
+    <script src="js/app.js?v=3"></script>
 </body>
 </html>
