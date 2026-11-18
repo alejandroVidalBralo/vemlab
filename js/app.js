@@ -1,240 +1,101 @@
 /* =====================================================================
-   VEMLAB · Banco de pruebas
-   Una pantalla por máquina:
-     1. Parámetros calculados en el laboratorio
-     2. Conexión (vacío / cortocircuito / carga) y alimentación
-     3. Diagrama + lecturas del simulador frente a las medidas del alumno
+   VEMLAB · Aplicación
+   Estado persistente, bucle de simulación en tiempo real, registro de
+   eventos, avisos y barra superior.
    ===================================================================== */
 (function () {
     'use strict';
-    var VEM = window.VEM, fmt = VEM.fmt, store = VEM.store;
+    var VEM = window.VEM;
+    var KEY = 'vemlab4';
     var $ = function (id) { return document.getElementById(id); };
 
-    var M = null;          /* máquina activa */
-    var st = null;         /* estado de la máquina activa */
-
-    function defaults(m) {
-        var P = {}; m.params.forEach(function (d) { P[d.k] = d.def; });
-        return P;
-    }
-    function loadState(m) {
-        var s = store.get('state.' + m.id, null) || {};
-        s.P = Object.assign(defaults(m), s.P || {});
-        s.mode = s.mode || m.modes[0].id;
-        s.supply = s.supply || {};
-        s.load = s.load || {};
-        s.meas = s.meas || {};
-        m.load(s.P).forEach(function (d) { if (s.load[d.k] === undefined) s.load[d.k] = d.def; });
+    function load() {
+        var s = null;
+        try { s = JSON.parse(localStorage.getItem(KEY)); } catch (e) { s = null; }
+        s = s || {};
+        s.motor = VEM.Motor.catalog.some(function (m) { return m.id === s.motor; }) ? s.motor : 'M2';
+        s.test = s.test || 'vacio';
+        s.tab = s.tab || 'guia';
+        s.data = s.data || {};
+        s.cables = Array.isArray(s.cables) ? s.cables.filter(function (c) { return VEM.Circuit.TERMINALS.indexOf(c.a) >= 0 && VEM.Circuit.TERMINALS.indexOf(c.b) >= 0; }) : [];
+        s.bridges = s.bridges || {};
+        s.variac = +s.variac || 0;
+        s.brake = +s.brake || 0;
+        s.color = s.color || 'red';
         return s;
     }
-    function save() { store.set('state.' + M.id, st); }
+    var st = load();
+    function link() {
+        var d = st.data[st.motor] = st.data[st.motor] || {};
+        d.meas = d.meas || {}; d.student = d.student || {}; d.chart = d.chart || {};
+        st.meas = d.meas; st.student = d.student; st.chart = d.chart;
+    }
+    link();
 
-    /* ---------------- Mando: deslizador + número ---------------- */
-    function control(parent, o, onChange) {
-        var w = document.createElement('div');
-        w.className = 'control';
-        w.innerHTML = '<div class="control-head"><label>' + o.label + '</label><span class="control-val">' +
-            '<input type="text" inputmode="decimal" class="num"><span class="unit">' + (o.unit || '') + '</span></span></div>' +
-            '<input type="range" min="' + o.min + '" max="' + o.max + '" step="' + o.step + '" aria-label="' + o.label.replace(/<[^>]+>/g, '') + '">';
-        parent.appendChild(w);
-        var num = w.querySelector('.num'), rng = w.querySelector('input[type=range]');
-        var dec = o.step < 1 ? (o.step < 0.1 ? 2 : 1) : 0;
-        function set(v, fire) {
-            v = VEM.clamp(v, o.min, o.max);
-            rng.value = v; num.value = fmt(v, dec);
-            if (fire) onChange(v);
-        }
-        rng.addEventListener('input', function () { set(parseFloat(rng.value), true); });
-        num.addEventListener('change', function () {
-            var v = VEM.parseNum(num.value);
-            if (isFinite(v)) set(v, true); else set(parseFloat(rng.value), false);
-        });
-        num.addEventListener('keydown', function (e) { if (e.key === 'Enter') num.blur(); });
-        set(o.value, false);
-        return { el: w, set: set };
+    var lab, bench, panel, scope, saveTimer = null, drawTick = 0;
+    function save() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(function () {
+            var o = {
+                motor: st.motor, test: st.test, seenHelp: st.seenHelp, tab: st.tab, data: st.data, color: bench ? bench.color : st.color,
+                cables: lab.cables, bridges: lab.bridges, variac: lab.variac, brake: lab.brake, scope: st.scope
+            };
+            try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) { /* sin almacenamiento */ }
+        }, 200);
     }
 
-    function segmented(parent, options, value, onChange, cls) {
-        var w = document.createElement('div');
-        w.className = 'segmented ' + (cls || '');
-        w.setAttribute('role', 'radiogroup');
-        options.forEach(function (o) {
-            var b = document.createElement('button');
-            b.type = 'button'; b.setAttribute('role', 'radio');
-            b.innerHTML = o[1];
-            b.className = o[0] === value ? 'on' : '';
-            b.setAttribute('aria-checked', o[0] === value);
-            b.addEventListener('click', function () { onChange(o[0]); });
-            w.appendChild(b);
-        });
-        parent.appendChild(w);
-        return w;
+    /* ---------------- Avisos y registro ---------------- */
+    function toast(msg, type) {
+        var box = $('toasts'), t = document.createElement('div');
+        t.className = 'toast ' + (type || '');
+        t.setAttribute('role', 'status');
+        t.textContent = msg;
+        box.appendChild(t);
+        requestAnimationFrame(function () { t.classList.add('in'); });
+        setTimeout(function () { t.classList.remove('in'); setTimeout(function () { t.remove(); }, 300); }, type === 'warn' ? 4200 : 2600);
+    }
+    function log(msg, type) {
+        var ol = $('log'), li = document.createElement('li'), d = new Date();
+        li.className = type || '';
+        li.innerHTML = '<time>' + d.toLocaleTimeString('es-ES') + '</time>';
+        li.appendChild(document.createTextNode(msg));
+        ol.insertBefore(li, ol.firstChild);
+        while (ol.children.length > 40) ol.lastChild.remove();
+    }
+    function alarm(msg) {
+        var a = $('alarm');
+        if (!msg) { a.hidden = true; return; }
+        a.innerHTML = '<strong>⚠ Disparo de protección</strong><span>' + msg + '</span><button type="button" class="btn btn-sm" id="alarm-ok">Entendido</button>';
+        a.hidden = false;
+        $('alarm-ok').onclick = function () { a.hidden = true; };
     }
 
-    /* ---------------- 1. Parámetros ---------------- */
-    function renderParams() {
-        var box = $('params-form');
-        box.innerHTML = '';
-        var group = null;
-        M.params.forEach(function (d) {
-            if (d.group !== group) {
-                group = d.group;
-                box.insertAdjacentHTML('beforeend', '<h3 class="group">' + group + '</h3>');
-            }
-            var lab = document.createElement('label');
-            lab.className = 'param';
-            lab.innerHTML = '<span class="param-label">' + d.label + '</span><span class="param-input">' +
-                '<input type="text" inputmode="decimal" value="' + VEM.fmtIn(st.P[d.k]) + '" autocomplete="off">' +
-                '<span class="unit">' + d.unit + '</span></span>';
-            var inp = lab.querySelector('input');
-            inp.addEventListener('input', function () {
-                var v = VEM.parseNum(inp.value);
-                var ok = isFinite(v) && (d.k === 'Pm' ? v >= 0 : v > 0) && (!d.int || Math.round(v) === v);
-                inp.classList.toggle('bad', !ok);
-                if (!ok) return;
-                st.P[d.k] = v; save();
-                renderControls(); update();
-            });
-            box.appendChild(lab);
-        });
-    }
-
-    /* ---------------- 2. Conexión ---------------- */
-    function renderModes() {
-        var box = $('modes');
-        box.innerHTML = '';
-        segmented(box, M.modes.map(function (m) { return [m.id, m.label]; }), st.mode, function (id) {
-            st.mode = id; save(); renderModes(); renderControls(); update();
-        }, 'big');
-        var mode = M.modes.filter(function (m) { return m.id === st.mode; })[0];
-        $('mode-help').innerHTML = mode.help;
-    }
-
-    function renderControls() {
-        var box = $('controls');
-        box.innerHTML = '';
-        var sp = M.supply(st.mode, st.P);
-        var v0 = st.supply[st.mode];
-        if (v0 === undefined || v0 > sp.max) v0 = sp.def;
-        var sup = control(box, { label: sp.label, unit: sp.unit, min: sp.min, max: sp.max, step: sp.step, value: v0 }, function (v) {
-            st.supply[st.mode] = v; save(); update();
-        });
-        st.supply[st.mode] = VEM.clamp(v0, sp.min, sp.max);
-        if (sp.quick) {
-            var q = document.createElement('button');
-            q.type = 'button'; q.className = 'btn btn-ghost btn-sm';
-            q.innerHTML = sp.quick.label;
-            q.addEventListener('click', function () { sup.set(+sp.quick.v.toFixed(2), true); });
-            sup.el.appendChild(q);
-        }
-        if (st.mode !== 'carga') return;
-        var loadBox = document.createElement('div');
-        loadBox.className = 'load-box';
-        loadBox.innerHTML = '<h3 class="group">Carga conectada</h3>';
-        box.appendChild(loadBox);
-        M.load(st.P).forEach(function (d) {
-            if (d.hideIf && Object.keys(d.hideIf).some(function (k) { return st.load[k] === d.hideIf[k]; })) return;
-            if (d.seg) {
-                var w = document.createElement('div');
-                w.className = 'control';
-                w.innerHTML = '<div class="control-head"><label>' + d.label + '</label></div>';
-                loadBox.appendChild(w);
-                segmented(w, d.seg, st.load[d.k], function (v) { st.load[d.k] = v; save(); renderControls(); update(); });
-                return;
-            }
-            var v = VEM.clamp(st.load[d.k], d.min, d.max);
-            st.load[d.k] = v;
-            control(loadBox, { label: d.label, unit: d.unit, min: d.min, max: d.max, step: d.step, value: v }, function (x) {
-                st.load[d.k] = x; save(); update();
-            });
-        });
-    }
-
-    /* ---------------- 3. Diagrama y lecturas ---------------- */
-    function diffClass(d) {
-        var a = Math.abs(d);
-        return a <= 5 ? 'ok' : (a <= 10 ? 'warn' : 'bad');
-    }
-
-    function update() {
-        var r;
-        try { r = M.solve(st.P, st.mode, st.supply[st.mode], st.load); }
-        catch (e) { console.error(e); return; }
-        $('diagram').innerHTML = M.diagram(st.P, st.mode, r, st.load);
-        $('alarm').hidden = !r.stalled;
-        if (r.stalled) $('alarm').innerHTML = 'Con esta tensión el motor no vence sus pérdidas mecánicas y se para. Sube la tensión.';
-
-        var rows = M.readings(st.mode, r);
-        var meas = st.meas[st.mode] = st.meas[st.mode] || {};
-        var tb = $('readings-body');
-        var focused = document.activeElement && document.activeElement.getAttribute('data-k');
-        tb.innerHTML = rows.map(function (row) {
-            var mv = meas[row.k];
-            var cell = row.noCompare ? '<td class="na">—</td><td></td>' :
-                '<td><input type="text" inputmode="decimal" data-k="' + row.k + '" value="' + (mv !== undefined ? VEM.fmtIn(mv) : '') + '" placeholder="—" aria-label="Tu medida de ' + row.label.replace(/<[^>]+>/g, '') + '"></td>' +
-                '<td class="diff" data-d="' + row.k + '"></td>';
-            return '<tr><th scope="row">' + row.label + (row.unit ? ' <span class="unit">(' + row.unit + ')</span>' : '') + '</th>' +
-                '<td class="sim">' + fmt(row.v, row.dec) + '</td>' + cell + '</tr>';
+    /* ---------------- Barra superior ---------------- */
+    function renderMotorSelect() {
+        var sel = $('motor-sel');
+        sel.innerHTML = VEM.Motor.catalog.map(function (m) {
+            return '<option value="' + m.id + '"' + (m.id === st.motor ? ' selected' : '') + '>' + m.name + ' · ' + VEM.fmtN(m.Pn / 1000, 1) + ' kW</option>';
         }).join('');
-        function showDiff(row) {
-            var cell = tb.querySelector('[data-d="' + row.k + '"]');
-            if (!cell) return;
-            var mv = meas[row.k];
-            if (mv === undefined || !isFinite(mv) || mv === 0 || !isFinite(row.v)) { cell.textContent = ''; cell.className = 'diff'; return; }
-            var d = (row.v - mv) / Math.abs(mv) * 100;
-            cell.textContent = (d > 0 ? '+' : '') + fmt(d, 1) + ' %';
-            cell.className = 'diff ' + diffClass(d);
-        }
-        rows.forEach(showDiff);
-        tb.querySelectorAll('input[data-k]').forEach(function (inp) {
-            inp.addEventListener('input', function () {
-                var k = inp.getAttribute('data-k'), v = VEM.parseNum(inp.value);
-                if (inp.value.trim() === '') delete meas[k]; else if (isFinite(v)) meas[k] = v;
-                inp.classList.toggle('bad', inp.value.trim() !== '' && !isFinite(v));
-                save();
-                showDiff(rows.filter(function (x) { return x.k === k; })[0]);
-                summary(rows);
-            });
-        });
-        if (focused) {
-            var f = tb.querySelector('[data-k="' + focused + '"]');
-            if (f) { f.focus(); var l = f.value.length; f.setSelectionRange(l, l); }
-        }
-        summary(rows);
+        sel.onchange = function () {
+            if (lab.on) { toast('Abre el interruptor Q1 antes de cambiar de máquina.', 'warn'); sel.value = st.motor; return; }
+            st.motor = sel.value; link();
+            lab.setMotor(VEM.Motor.catalog.filter(function (m) { return m.id === st.motor; })[0]);
+            lab.locked = false; lab.brake = 0;
+            bench.setPlate(); bench.buildBrakeKnob();
+            panel.render();
+            log('Máquina de ensayo cambiada a ' + lab.P.name + ' (' + VEM.fmtN(lab.P.Pn / 1000, 1) + ' kW).');
+            save();
+        };
     }
 
-    function summary(rows) {
-        var meas = st.meas[st.mode] || {}, n = 0, worst = 0;
-        rows.forEach(function (row) {
-            var mv = meas[row.k];
-            if (row.noCompare || mv === undefined || !isFinite(mv) || mv === 0 || !isFinite(row.v)) return;
-            n++; worst = Math.max(worst, Math.abs((row.v - mv) / mv * 100));
+    function renderColors() {
+        var box = $('colors');
+        box.innerHTML = VEM.Bench.COLORS.map(function (c) {
+            return '<button type="button" class="swatch' + (c.id === bench.color ? ' on' : '') + '" data-c="' + c.id + '" style="--c:' + c.c + '" title="Cable ' + c.name.toLowerCase() + '" aria-label="Cable ' + c.name.toLowerCase() + '"></button>';
+        }).join('');
+        box.querySelectorAll('[data-c]').forEach(function (b) {
+            b.onclick = function () { bench.setColor(b.getAttribute('data-c')); renderColors(); save(); };
         });
-        var el = $('verdict');
-        if (!n) {
-            el.className = 'verdict';
-            el.innerHTML = 'Escribe en la columna <strong>Tu medida</strong> lo que mediste en el laboratorio en las mismas condiciones (misma conexión y misma tensión).';
-            return;
-        }
-        var c = diffClass(worst);
-        el.className = 'verdict ' + c;
-        el.innerHTML = c === 'ok' ? '✓ Tus parámetros reproducen tus medidas (todas las diferencias ≤ 5 %).' :
-            c === 'warn' ? 'Diferencias moderadas (máx. ' + fmt(worst, 1) + ' %). Revisa los cálculos o la precisión de las medidas.' :
-                '✗ Alguna diferencia supera el 10 % (máx. ' + fmt(worst, 1) + ' %). Revisa el parámetro relacionado con esa medida.';
-    }
-
-    /* ---------------- Máquina activa ---------------- */
-    function select(id) {
-        M = VEM.machines.filter(function (m) { return m.id === id; })[0] || VEM.machines[0];
-        st = loadState(M);
-        store.set('machine', M.id);
-        document.querySelectorAll('[data-m]').forEach(function (b) {
-            var on = b.getAttribute('data-m') === M.id;
-            b.classList.toggle('on', on); b.setAttribute('aria-selected', on);
-        });
-        $('machine-sub').textContent = M.subtitle;
-        $('params-note').innerHTML = M.note || '';
-        renderParams(); renderModes(); renderControls(); update();
     }
 
     function applyTheme(t) {
@@ -246,25 +107,107 @@
         return dark;
     }
 
+    /* ---------------- Bucle ---------------- */
+    var last = 0, acc = 0, rd = null;
+    function loop(t) {
+        try { frame(t); } catch (e) { if (window.console) console.error(e); }
+        requestAnimationFrame(loop);
+    }
+    function frame(t) {
+        var dt = last ? (t - last) / 1000 : 0.016;
+        last = t;
+        dt = Math.min(dt, 0.1);
+        lab.step(dt);
+        rd = lab.readings();
+        bench.frame(dt, rd);
+        scope.sample(dt, rd);
+        if (++drawTick % 2 === 0) scope.draw();
+        acc += dt;
+        if (acc >= 0.25) {
+            acc = 0;
+            var shown = bench.displays(rd);
+            panel.tick(shown);
+            status(rd);
+        }
+        lab.events.splice(0).forEach(function (e) {
+            if (e.type === 'trip') { log(e.msg, 'bad'); alarm(e.msg); }
+            else { log(e.msg, 'warn'); toast(e.msg, 'warn'); }
+        });
+    }
+
+    var lastStatus = '';
+    function status(r) {
+        var s, cls;
+        if (lab.on) {
+            var n = Math.abs(r.n), ns = lab.P.plate.ns;
+            if (lab.locked) s = 'Rotor bloqueado · alimentado';
+            else if (n < 1 && Math.max(r.Iw[0], r.Iw[1], r.Iw[2]) > 0.3 * lab.P.Iwn) s = 'Motor alimentado pero sin girar (zumba)';
+            else if (n < 1) s = 'Fuente conectada';
+            else s = 'Motor girando · ' + Math.round(n) + ' min⁻¹' + (r.n < 0 ? ' (sentido antihorario)' : '');
+            cls = 'on';
+        } else { s = lab.trip ? 'Protección disparada · fuente desconectada' : 'Fuente desconectada · puedes modificar el montaje'; cls = lab.trip ? 'bad' : ''; }
+        var html = '<span class="dot ' + cls + '"></span>' + s;
+        if (html !== lastStatus) { $('status').innerHTML = html; lastStatus = html; }
+    }
+
     function init() {
-        document.querySelectorAll('[data-m]').forEach(function (b) {
-            b.addEventListener('click', function () { select(b.getAttribute('data-m')); });
+        lab = new VEM.Lab(VEM.Motor.catalog.filter(function (m) { return m.id === st.motor; })[0]);
+        lab.cables = st.cables; lab.bridges = st.bridges;
+        lab.variac = Math.min(1, Math.max(0, st.variac));
+        lab.brake = st.brake;
+        lab.rewire();
+        var hooks = {
+            changed: function () { save(); },
+            toast: toast, log: log,
+            hover: function (s) { $('hover').textContent = s || 'Pulsa un borne y después otro para tender un cable. Clic en un cable para seleccionarlo; doble clic o Supr para quitarlo. Ctrl+Z deshace.'; },
+            selection: function (i) {
+                var b = $('btn-del');
+                if (b) b.hidden = i < 0;
+            }
+        };
+        bench = new VEM.Bench($('bench'), lab, hooks);
+        bench.color = st.color;
+        hooks.hover(null);
+        panel = new VEM.Panel($('side'), lab, st, {
+            save: save, toast: toast,
+            reference: function () {
+                var w = VEM.Panel.referenceWiring(lab.P);
+                if (bench.setWiring(w.cables, w.bridges)) { log('Montaje de referencia cableado (método de los dos vatímetros).'); toast('Montaje de referencia cableado.', 'ok'); }
+            }
         });
-        $('btn-defaults').addEventListener('click', function () {
-            if (!window.confirm('¿Sustituir tus parámetros por los valores de ejemplo?')) return;
-            st.P = defaults(M); save(); renderParams(); renderControls(); update();
+        st.scope = st.scope || {};
+        scope = new VEM.Scope($('scope'), lab, {
+            settings: st.scope, save: save, toast: toast,
+            points: function () { return (st.meas.carga || []).map(function (r) { return { n: r.n, T: r.T }; }); }
         });
-        $('btn-clear').addEventListener('click', function () {
-            st.meas[st.mode] = {}; save(); update();
-        });
-        var t = store.get('theme', null);
+        $('scopebox').addEventListener('toggle', function () { scope.draw(true); });
+        renderMotorSelect();
+        renderColors();
+        $('btn-undo').onclick = function () { bench.undo(); };
+        $('btn-clear').onclick = function () {
+            if (!lab.cables.length) return;
+            if (lab.on) { bench.canEdit(); return; }
+            if (window.confirm('¿Quitar todos los cables del banco?')) bench.clearCables();
+        };
+        $('btn-del').onclick = function () { bench.removeCable(bench.sel); };
+        $('btn-help').onclick = function () { $('help').showModal(); };
+        $('help-close').onclick = function () { $('help').close(); };
+        var t = null;
+        try { t = localStorage.getItem(KEY + '.theme'); } catch (e) { t = null; }
         applyTheme(t);
-        $('btn-theme').addEventListener('click', function () {
-            var dark = applyTheme();
-            store.set('theme', dark ? 'light' : 'dark');
-            applyTheme(dark ? 'light' : 'dark');
+        $('btn-theme').onclick = function () {
+            var nt = applyTheme() ? 'light' : 'dark';
+            applyTheme(nt);
+            try { localStorage.setItem(KEY + '.theme', nt); } catch (e) { /* nada */ }
+        };
+        window.addEventListener('keydown', function (e) {
+            if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+            if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey) { e.preventDefault(); panel.record(); }
         });
-        select(store.get('machine', VEM.machines[0].id));
+        log('Banco preparado: ' + lab.P.name + ' (' + VEM.fmtN(lab.P.Pn / 1000, 1) + ' kW). Fuente desconectada.');
+        if (!st.seenHelp && !/[?&]nohelp/.test(location.search)) { $('help').showModal(); st.seenHelp = true; }
+        VEM.app = { lab: lab, bench: bench, panel: panel, scope: scope, st: st };
+        requestAnimationFrame(loop);
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

@@ -3,69 +3,98 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="VEMLAB · Comprueba con el circuito equivalente los parámetros del transformador y del motor asíncrono calculados en el laboratorio.">
-    <title>VEMLAB · Laboratorio virtual de máquinas eléctricas</title>
-    <link rel="stylesheet" href="css/main.css?v=5">
+    <meta name="description" content="VEMLAB · Laboratorio virtual de la máquina asíncrona trifásica: ensayos de vacío, cortocircuito y carga con fuente regulable, vatímetros y freno.">
+    <title>VEMLAB · Laboratorio virtual de la máquina asíncrona</title>
+    <link rel="stylesheet" href="css/main.css?v=7">
 </head>
 <body>
     <header class="topbar">
         <div class="brand">
-            <svg class="brand-mark" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 12c1.4-3 2.8-3 4.1 0s2.7 3 4.1 0 2.4-2.4 2.8-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <svg class="brand-mark" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 12c1.4-3 2.8-3 4.1 0s2.7 3 4.1 0 2.4-2.4 2.8-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             <span class="brand-name">VEMLAB</span>
+            <span class="brand-sub">Laboratorio virtual · Máquina asíncrona trifásica</span>
         </div>
-        <nav class="machine-tabs" role="tablist" aria-label="Máquina">
-            <button type="button" role="tab" data-m="motor">Máquina asíncrona</button>
-            <button type="button" role="tab" data-m="trafo">Transformador</button>
-        </nav>
-        <button type="button" class="icon-btn" id="btn-theme" aria-label="Cambiar tema">☾</button>
+        <label class="motor-pick">Máquina de ensayo
+            <select id="motor-sel" aria-label="Máquina de ensayo"></select>
+        </label>
+        <div class="top-actions">
+            <button type="button" class="icon-btn" id="btn-help" title="Ayuda" aria-label="Ayuda">?</button>
+            <button type="button" class="icon-btn" id="btn-theme" aria-label="Cambiar tema">☾</button>
+        </div>
     </header>
 
-    <main class="bench">
-        <p class="howto"><span id="machine-sub"></span> · Introduce los parámetros que has calculado, conecta la máquina como en el laboratorio y compara lo que da el simulador con lo que mediste.</p>
-
-        <div class="layout">
-            <aside class="card params">
-                <div class="card-head">
-                    <h2><span class="num-badge">1</span>Tus parámetros</h2>
-                    <button type="button" class="btn btn-ghost btn-sm" id="btn-defaults" title="Cargar valores de ejemplo">Ejemplo</button>
+    <main class="app">
+        <section class="bench-wrap" aria-label="Banco de ensayos">
+            <div class="bench-toolbar">
+                <div class="tool-group">
+                    <span class="tool-lbl">Cable</span>
+                    <div id="colors" class="colors"></div>
                 </div>
-                <div id="params-form" class="params-form"></div>
-                <p class="note" id="params-note"></p>
-            </aside>
-
-            <div class="work">
-                <section class="card conn">
-                    <div class="card-head"><h2><span class="num-badge">2</span>Conexión</h2></div>
-                    <div id="modes"></div>
-                    <p class="mode-help" id="mode-help"></p>
-                    <div id="controls" class="controls"></div>
-                </section>
-
-                <section class="card diag">
-                    <div id="diagram" class="diagram-wrap"></div>
-                    <div id="alarm" class="alarm" hidden></div>
-                </section>
-
-                <section class="card readings">
-                    <div class="card-head">
-                        <h2><span class="num-badge">3</span>Compara con tus medidas</h2>
-                        <button type="button" class="btn btn-ghost btn-sm" id="btn-clear">Borrar medidas</button>
-                    </div>
-                    <div class="table-wrap">
-                        <table class="cmp">
-                            <thead><tr><th scope="col">Magnitud</th><th scope="col">Simulador</th><th scope="col">Tu medida</th><th scope="col">Diferencia</th></tr></thead>
-                            <tbody id="readings-body"></tbody>
-                        </table>
-                    </div>
-                    <p id="verdict" class="verdict"></p>
-                </section>
+                <div class="tool-group">
+                    <button type="button" class="btn btn-ghost btn-sm" id="btn-del" hidden>Quitar cable</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btn-undo" title="Ctrl+Z">Deshacer</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btn-clear">Quitar todos los cables</button>
+                </div>
             </div>
-        </div>
+            <div class="bench-stage">
+                <svg id="bench" class="bench" xmlns="http://www.w3.org/2000/svg" role="application" aria-label="Banco de ensayos de la máquina asíncrona"></svg>
+                <div id="alarm" class="alarm" role="alert" hidden></div>
+            </div>
+            <div class="statusbar">
+                <span id="status" class="status"></span>
+                <span id="hover" class="hover"></span>
+            </div>
+            <details class="scopebox" id="scopebox" open>
+                <summary>Osciloscopio · registrador</summary>
+                <div id="scope"></div>
+            </details>
+            <details class="logbox" open>
+                <summary>Registro de eventos</summary>
+                <ol id="log" class="log"></ol>
+            </details>
+        </section>
+
+        <aside class="side" id="side">
+            <div id="plate" class="plate" aria-label="Placa de características"></div>
+            <div class="tests" role="tablist" aria-label="Ensayo">
+                <button type="button" role="tab" data-test="vacio">Vacío</button>
+                <button type="button" role="tab" data-test="cc">Cortocircuito</button>
+                <button type="button" role="tab" data-test="carga">Carga</button>
+            </div>
+            <nav class="tabs" role="tablist" aria-label="Sección">
+                <button type="button" role="tab" data-tab="guia">Guía</button>
+                <button type="button" role="tab" data-tab="medidas">Medidas</button>
+                <button type="button" role="tab" data-tab="graficas">Gráficas</button>
+                <button type="button" role="tab" data-tab="comprobar">Comprobar</button>
+            </nav>
+            <div id="tab-body" class="tab-body"></div>
+        </aside>
     </main>
 
-    <script src="js/core.js?v=5"></script>
-    <script src="js/trafo.js?v=5"></script>
-    <script src="js/motor.js?v=5"></script>
-    <script src="js/app.js?v=5"></script>
+    <div id="toasts" class="toasts" aria-live="polite"></div>
+
+    <dialog id="help" class="help">
+        <h2>Cómo usar el laboratorio virtual</h2>
+        <ol>
+            <li><b>Puentes.</b> En la caja de bornes pulsa entre dos bornes para poner o quitar una chapa de puente (o usa los botones Estrella / Triángulo). Mira la placa: con una red de 400 V entre fases, un motor 230/400 V va en estrella y uno 400/690 V en triángulo.</li>
+            <li><b>Cables.</b> Pulsa un borne y después otro (o arrastra de uno a otro). Elige el color arriba. Clic en un cable para seleccionarlo; doble clic, clic derecho o <kbd>Supr</kbd> para quitarlo. <kbd>Ctrl</kbd>+<kbd>Z</kbd> deshace.</li>
+            <li><b>Vatímetros.</b> El borne marcado con * es el de polaridad: la corriente debe entrar por I* y U* debe ir a la misma fase que I*.</li>
+            <li><b>Fuente.</b> Con el montaje terminado, ajusta el autotransformador (arrastra el mando, rueda del ratón o botones − / +) y cierra el interruptor Q1. Por seguridad no se puede modificar el montaje con tensión.</li>
+            <li><b>Freno.</b> La consigna de par carga el motor. El bloqueo del rotor (solo con el motor parado) sirve para el ensayo de cortocircuito.</li>
+            <li><b>Osciloscopio.</b> Debajo del banco: «Tendencia» registra el histórico de las medidas (útil para ver el arranque), «Ondas u–i» muestra la tensión y la corriente instantáneas con su desfase, y «Par–velocidad» traza la curva T–n por el método de aceleración (arranca con el freno a 0, mejor a tensión reducida).</li>
+            <li><b>Medidas.</b> En la pestaña «Medidas» pulsa «Registrar medida» (o la tecla <kbd>R</kbd>) en cada punto. Después usa «Gráficas» y «Comprobar».</li>
+        </ol>
+        <p class="note">Como en el laboratorio real, el interruptor dispara ante un cortocircuito y las sondas térmicas del motor lo desconectan si los devanados soportan demasiada corriente durante demasiado tiempo.</p>
+        <div class="help-actions"><button type="button" class="btn" id="help-close">Empezar</button></div>
+    </dialog>
+
+    <script src="js/model.js?v=7"></script>
+    <script src="js/circuit.js?v=7"></script>
+    <script src="js/sim.js?v=7"></script>
+    <script src="js/widgets.js?v=7"></script>
+    <script src="js/bench.js?v=7"></script>
+    <script src="js/panel.js?v=7"></script>
+    <script src="js/scope.js?v=7"></script>
+    <script src="js/app.js?v=7"></script>
 </body>
 </html>
