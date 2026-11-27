@@ -587,3 +587,37 @@ table.meas tr.off td { opacity: .45; }
 .nw { white-space: nowrap; }
 .ul-inline { list-style: none; padding-left: 0 !important; }
 .ul-inline li::before { content: "✓ "; color: var(--primary); font-weight: 800; }
+
+/* ---------------- Aparamenta (modo libre) ---------------- */
+.ap-body { fill: #e6e8eb; stroke: #9aa1aa; stroke-width: 1.5; }
+.ap-strip { fill: #d3d7dc; }
+.ap-face { fill: #f3f4f6; stroke: #c3c8ce; }
+.ap-title { fill: #2b3038; font-size: 15px; font-weight: 800; letter-spacing: .06em; }
+.ap-sub { fill: #5b6470; font-size: 9.5px; }
+.ap-head { fill: #e9edf2; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; }
+.fcomp .ap-body ~ .sock-lbl, .fcomp .ap-strip ~ .sock-lbl { fill: #2b3038; }
+.ap-ln { fill: none; stroke: #6b7380; stroke-width: 1.6; }
+.ap-win { fill: #2b3038; }
+.ap-flag { fill: #8a9097; transition: fill .1s; }
+.ap-flag.on { fill: #2c9a4f; }
+.ap-flag.trip { fill: #e8780c; }
+.ap-flag-t { fill: #fff; font-size: 13px; font-weight: 800; pointer-events: none; }
+.ap-flag-t.sm { font-size: 9px; letter-spacing: .04em; }
+.ap-tag { fill: transparent; }
+.ap-btn { cursor: pointer; outline: none; }
+.ap-btn:focus-visible .ap-pb-ring, .ap-btn:focus-visible .ap-reset, .ap-btn:focus-visible .brk-slot, .ap-btn:focus-visible .rocker-body, .ap-btn:focus-visible .ap-sel-ring { stroke: #5b9bff; stroke-width: 3; }
+.ap-reset { fill: #1f63c6; stroke: #0f3a78; }
+.ap-reset-t { fill: #fff; font-size: 10px; font-weight: 800; pointer-events: none; }
+.ap-box { fill: #2b3038; stroke: #15181d; stroke-width: 1.5; }
+.ap-pb-ring { fill: #c9cdd2; stroke: #6b7179; stroke-width: 2; }
+.ap-pb-ring.e { fill: #f2c94c; stroke: #8a6d10; }
+.ap-pb { stroke: rgba(0,0,0,.45); stroke-width: 2; }
+.ap-pb.pbg { fill: #2c9a4f; } .ap-pb.pbr { fill: #d0312d; } .ap-pb.pbe { fill: url(#gStop); }
+.pressed .ap-pb { filter: brightness(.8); }
+.ap-pb-t { fill: #fff; font-size: 20px; font-weight: 800; pointer-events: none; }
+.ap-sel-ring { fill: #1a1d22; stroke: #6b7179; stroke-width: 2; }
+.ap-sel-h { fill: #d9dde2; stroke: #6b7179; transition: transform .12s; }
+.ap-sel-t { fill: #e9edf2; font-size: 13px; font-weight: 800; }
+.ap-lamp-ring { fill: #1a1d22; stroke: #8a9097; stroke-width: 3; }
+.ap-dome { stroke: rgba(0,0,0,.35); stroke-width: 1.5; }
+.ap-head.dark { fill: #2b3038; }

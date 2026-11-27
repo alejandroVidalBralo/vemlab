@@ -194,6 +194,7 @@
             '<li><b>Lienzo.</b> Arrastra el fondo para desplazarte; rueda del ratón o pellizco para acercar y alejar; «Encuadrar» muestra todo el montaje.</li>' +
             '<li><b>Ejes.</b> Cada máquina (y el dinamómetro) tiene un extremo de eje: pulsa el de una y después el de otra para acoplarlas mecánicamente. Las máquinas acopladas giran juntas (inercias y pares se suman). Doble clic sobre el acoplamiento para soltarlo. Solo con las máquinas paradas.</li>' +
             HELP_COMMON_CABLES.replace(/<li><b>Fuente\.<\/b>[^]*?<\/li>/, '') +
+            '<li><b>Aparamenta.</b> Contactores (polos 1-2, 3-4, 5-6, auxiliares 13-14 NA y 21-22 NC, bobina A1-A2 a 230 V ~), relé térmico (ajuste Ir, contactos 95-96 NC y 97-98 NA, rearme RESET), magnetotérmico tripolar (curva C, calibre seleccionable), temporizador a la conexión (15-16 NC y 15-18 NA temporizados), pulsadores de marcha y paro, seta de emergencia, selector y pilotos. Alimenta el mando con la <b>fuente de mando 230 V ~</b>. Los pulsadores se accionan mientras los mantienes pulsados.</li>' +
             '<li><b>Fuentes.</b> Cada fuente tiene su interruptor (la de excitación, su contactor). El neutro N de todas las fuentes trifásicas es la misma red. Mientras haya alguna fuente conectada no se puede modificar el montaje.</li>' +
             '<li><b>Todo vale.</b> Cualquier combinación de fuentes, máquinas, transformadores, cargas e instrumentos se calcula: un motor de c.c. moviendo un alternador que se acopla a la red, un motor asíncrono arrastrando una dinamo, dos asíncronas acopladas, un transformador alimentando un motor… Si te equivocas, pasa lo mismo que en el laboratorio: disparos, sobrevelocidad o lecturas absurdas.</li>' +
             '<li><b>Compartir.</b> «Exportar» guarda el montaje en un archivo .json; «Importar» lo carga en otro equipo. Así un docente puede preparar un montaje y repartirlo a sus alumnos.</li>' +
@@ -374,7 +375,7 @@
         sel.closest('.motor-pick').querySelector('.motor-lbl').textContent = 'Añadir';
         var cats = {}, html = '<option value="">Añadir componente…</option>';
         Object.keys(T).forEach(function (k) { (cats[T[k].cat] = cats[T[k].cat] || []).push(k); });
-        ['Fuentes', 'Instrumentos', 'Cargas', 'Máquinas'].forEach(function (cat) {
+        ['Fuentes', 'Instrumentos', 'Aparamenta', 'Cargas', 'Máquinas'].forEach(function (cat) {
             html += '<optgroup label="' + cat + '">';
             (cats[cat] || []).forEach(function (k) {
                 var t = T[k];

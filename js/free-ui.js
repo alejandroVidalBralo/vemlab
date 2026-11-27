@@ -36,14 +36,27 @@
         dyno: { proto: 'Bench', origin: [1130, 396], size: [350, 484], shaft: [1146, 646] },
         im: { proto: 'Bench', origin: [0, 0], size: [470, 300], shaft: [452, 156] },
         dcm: { proto: 'DCBench', origin: [0, 0], size: [470, 300], shaft: [452, 156] },
-        sm: { proto: 'SyncBench', origin: [0, 0], size: [470, 300], shaft: [452, 156] }
+        sm: { proto: 'SyncBench', origin: [0, 0], size: [470, 300], shaft: [452, 156] },
+        ctl: { proto: 'Bench', origin: [0, 0], size: [170, 240] },
+        qm: { proto: 'Bench', origin: [0, 0], size: [140, 250] },
+        km: { proto: 'Bench', origin: [0, 0], size: [240, 250] },
+        fr: { proto: 'Bench', origin: [0, 0], size: [210, 250] },
+        kt: { proto: 'Bench', origin: [0, 0], size: [170, 250] },
+        pbno: { proto: 'Bench', origin: [0, 0], size: [110, 170] },
+        pbnc: { proto: 'Bench', origin: [0, 0], size: [110, 170] },
+        estop: { proto: 'Bench', origin: [0, 0], size: [110, 170] },
+        sel: { proto: 'Bench', origin: [0, 0], size: [110, 170] },
+        lamp: { proto: 'Bench', origin: [0, 0], size: [110, 170] }
     };
     var NICE = {
         'src.L1': 'L1', 'src.L2': 'L2', 'src.L3': 'L3', 'src.N': 'N (tierra de la red)',
         'w.Ia': 'I* (entrada de corriente, polaridad)', 'w.Ib': 'I (salida de corriente)', 'w.Ua': 'U* (tensión, polaridad)', 'w.Ub': 'U (tensión)',
         'am.a': 'A', 'am.b': 'COM', 'vm.a': 'V', 'vm.b': 'COM', 'ad.a': '+ (entra la corriente)', 'ad.b': 'COM', 'vd.a': '+', 'vd.b': 'COM', 'mm.a': 'Ω', 'mm.b': 'COM',
         'ps.A+': 'INDUCIDO +', 'ps.A-': 'INDUCIDO −', 'ps.F+': 'EXCITACIÓN +', 'ps.F-': 'EXCITACIÓN −', 'ex.+': '+', 'ex.-': '−',
-        'ld.+': '+', 'ld.-': '−', 'ra.1': 'arranque 1', 'ra.2': 'arranque 2', 'rf.1': 'campo 1', 'rf.2': 'campo 2'
+        'ld.+': '+', 'ld.-': '−', 'ra.1': 'arranque 1', 'ra.2': 'arranque 2', 'rf.1': 'campo 1', 'rf.2': 'campo 2',
+        'k.A1': 'bobina A1', 'k.A2': 'bobina A2', 'kt.A1': 'bobina A1', 'kt.A2': 'bobina A2', 'k.13': '13 (NA)', 'k.14': '14 (NA)', 'k.21': '21 (NC)', 'k.22': '22 (NC)',
+        'f.95': '95 (NC)', 'f.96': '96 (NC)', 'f.97': '97 (NA)', 'f.98': '98 (NA)', 'kt.15': '15 (común)', 'kt.16': '16 (NC temporizado)', 'kt.18': '18 (NA temporizado)',
+        'cs.L': 'L (fase)', 'cs.N': 'N (neutro)'
     };
     function nice(local) {
         if (NICE[local]) return NICE[local];
@@ -174,6 +187,7 @@
             case 'tr': this.drawTrafo(v, inner, c); break;
             case 'dyno': v.buildDynoPanel(inner); this.drawDynoShaft(v, inner); break;
             case 'im': case 'dcm': case 'sm': this.drawMachine(v, inner, c); break;
+            default: if (APAR[c.type]) APAR[c.type].call(this, v, inner, c);
         }
         /* etiqueta con el número del componente */
         var tag = el('g', { 'class': 'ftag' }, outer);
@@ -336,7 +350,7 @@
     /* ---------------- Mover componentes ---------------- */
     FreeBench.prototype.dragStart = function (e, c) {
         if (e.button !== 0 || this.pending) return;
-        if (e.target.closest && e.target.closest('.knob,.pbtn,.breaker,.estop,.rocker,.locksw,.slot,.wm-lcd')) return;
+        if (e.target.closest && e.target.closest('.knob,.pbtn,.breaker,.estop,.rocker,.locksw,.slot,.wm-lcd,.ap-btn')) return;
         e.stopPropagation(); e.preventDefault();
         var self = this, p0 = VEM.svgPoint(this.svg, e.clientX, e.clientY), x0 = c.x, y0 = c.y, moved = false;
         this.selectComp(c.id);
@@ -568,6 +582,9 @@
                     v.frameDyno(dt, rr);
                     break;
                 }
+                case 'ctl': case 'qm': case 'km': case 'fr': case 'kt': case 'pbno': case 'pbnc': case 'estop': case 'sel': case 'lamp':
+                    frameApar(v, c, r);
+                    break;
                 case 'im': case 'dcm': case 'sm':
                     if (r) { var th = r.thermal * 10; for (var j = 0; j < 10; j++) v.thLeds[j].classList.toggle('lit', j < th); }
                     break;
@@ -643,9 +660,241 @@
         this.lab.comps.forEach(function (c) { if (c.type === 'dyno' && self.views[c.id]) self.views[c.id].buildDynoKnob(); });
     };
 
+    /* ================= Aparamenta ================= */
+    var PH_COL = ['#7b4a24', '#1d1f22', '#8a9097'], AUX = '#5b6470', COILC = '#1f5fbf';
+    function body(g, w, h, title, sub, cls) {
+        el('rect', { x: 0, y: 0, width: w, height: h, rx: 8, 'class': 'ap-body ' + (cls || '') }, g);
+        el('rect', { x: 0, y: 0, width: w, height: 64, rx: 8, 'class': 'ap-strip' }, g);
+        el('rect', { x: 0, y: h - 64, width: w, height: 64, rx: 8, 'class': 'ap-strip' }, g);
+        el('rect', { x: 10, y: 74, width: w - 20, height: h - 148, rx: 5, 'class': 'ap-face' }, g);
+        txt(g, w / 2, 92, title, 'ap-title', { 'text-anchor': 'middle' });
+        if (sub) txt(g, w / 2, 106, sub, 'ap-sub', { 'text-anchor': 'middle' });
+    }
+    /* fila de bornes: ids, etiquetas, colores, y (borde), arriba o abajo */
+    function row(v, g, ids, lbls, cols, x0, dx, y, top) {
+        ids.forEach(function (id, i) {
+            var x = x0 + i * dx;
+            v.socket(g, id, x, y, cols[i], lbls[i], top ? -18 : 28);
+        });
+    }
+    function btn(g, cb, title) {
+        var b = el('g', { 'class': 'ap-btn', tabindex: 0, role: 'button' }, g);
+        if (title) W.title(b, title);
+        b.addEventListener('pointerdown', function (e) { if (e.button === 0) { e.stopPropagation(); cb('down', e); } });
+        b.addEventListener('pointerup', function (e) { cb('up', e); });
+        b.addEventListener('pointercancel', function (e) { cb('up', e); });
+        b.addEventListener('pointerleave', function (e) { cb('leave', e); });
+        b.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cb('key', e); } });
+        return b;
+    }
+    var APAR = {
+        ctl: function (v, g, c) {
+            var self = this, lab = this.lab;
+            body(g, 170, 240, 'MANDO', '230 V ~ · 2 A');
+            txt(g, 85, 26, 'FUENTE DE MANDO', 'ap-head dark', { 'text-anchor': 'middle' });
+            var sw = v.sw = btn(g, function (k) {
+                if (k === 'up' || k === 'leave') return;
+                if (!lab.compSwitch(c, !c.st.on)) return;
+                self.hooks.log(lab.label(c) + (c.st.on ? ' conectada (230 V ~).' : ' desconectada.'));
+                self.hooks.changed(false);
+            }, 'Interruptor de la fuente de mando');
+            el('rect', { x: 45, y: 118, width: 80, height: 40, rx: 6, 'class': 'rocker-body' }, sw);
+            sw.lever = el('rect', { x: 50, y: 123, width: 35, height: 30, rx: 4, 'class': 'rocker-lever' }, sw);
+            sw.t = txt(sw, 67, 144, '0', 'rocker-txt', { 'text-anchor': 'middle' });
+            v.lampOn = v.lamp(g, 85, 160 + 0, 'green');
+            row(v, g, ['cs.L', 'cs.N'], ['L', 'N'], ['#7b4a24', '#1f5fbf'], 55, 60, 206, false);
+        },
+        qm: function (v, g, c) {
+            var self = this, lab = this.lab;
+            body(g, 140, 250, 'Q', null);
+            v.inTxt = txt(g, 70, 106, '', 'ap-sub', { 'text-anchor': 'middle' });
+            row(v, g, ['q.1', 'q.3', 'q.5'], ['1', '3', '5'], PH_COL, 34, 36, 40, true);
+            row(v, g, ['q.2', 'q.4', 'q.6'], ['2', '4', '6'], PH_COL, 34, 36, 210, false);
+            var lv = btn(g, function (k) {
+                if (k !== 'down' && k !== 'key') return;
+                c.st.on = !c.st.on; c.st.th = c.st.on ? c.st.th : 0;
+                self.hooks.log(lab.label(c) + (c.st.on ? ' cerrado.' : ' abierto.'));
+                self.hooks.changed(false);
+            }, 'Palanca del magnetotérmico (I cerrar / O abrir)');
+            el('rect', { x: 48, y: 116, width: 44, height: 62, rx: 5, 'class': 'brk-slot' }, lv);
+            v.qLev = el('rect', { x: 52, y: 120, width: 36, height: 26, rx: 3, 'class': 'brk-lever' }, lv);
+            v.qTxt = txt(lv, 70, 138, 'O', 'brk-lever-txt', { 'text-anchor': 'middle' });
+            var ib = btn(g, function (k) {
+                if (k !== 'down' && k !== 'key') return;
+                if (c.st.on) { self.hooks.toast('Abre el magnetotérmico antes de cambiar su calibre.', 'warn'); return; }
+                var L = [2, 4, 6, 10, 16]; c.st.In = L[(L.indexOf(c.st.In) + 1) % L.length];
+                self.hooks.changed(false);
+            }, 'Calibre: pulsa para cambiarlo (2, 4, 6, 10 o 16 A, curva C)');
+            el('rect', { x: 36, y: 96, width: 68, height: 14, rx: 3, 'class': 'ap-tag' }, ib);
+        },
+        km: function (v, g, c) {
+            body(g, 240, 250, 'KM', 'contactor · bobina 230 V ~');
+            row(v, g, ['k.1', 'k.3', 'k.5', 'k.13', 'k.21', 'k.A1'], ['1', '3', '5', '13', '21', 'A1'], PH_COL.concat([AUX, AUX, COILC]), 30, 36, 40, true);
+            row(v, g, ['k.2', 'k.4', 'k.6', 'k.14', 'k.22', 'k.A2'], ['2', '4', '6', '14', '22', 'A2'], PH_COL.concat([AUX, AUX, COILC]), 30, 36, 210, false);
+            /* esquema serigrafiado */
+            var s = el('g', { 'class': 'ap-sch' }, g);
+            [30, 66, 102].forEach(function (x) { el('path', { d: 'M' + x + ',116 v14 l10,-12 M' + x + ',134 v14', 'class': 'ap-ln' }, s); });
+            el('path', { d: 'M138,116 v14 l10,-12 M138,134 v14 M174,116 v14 M174,118 l10,14 M174,134 v14', 'class': 'ap-ln' }, s);
+            el('rect', { x: 202, y: 122, width: 16, height: 20, 'class': 'ap-ln' }, s);
+            /* indicador mecánico de posición */
+            el('rect', { x: 86, y: 154, width: 68, height: 26, rx: 4, 'class': 'ap-win' }, g);
+            v.flag = el('rect', { x: 89, y: 157, width: 62, height: 20, rx: 3, 'class': 'ap-flag' }, g);
+            v.flagT = txt(g, 120, 172, 'O', 'ap-flag-t', { 'text-anchor': 'middle' });
+        },
+        fr: function (v, g, c) {
+            var self = this, lab = this.lab;
+            body(g, 210, 250, 'F', null); txt(g, 196, 112, 'clase 10', 'ap-sub', { 'text-anchor': 'end' });
+            row(v, g, ['f.1', 'f.3', 'f.5', 'f.95', 'f.97'], ['1', '3', '5', '95', '97'], PH_COL.concat([AUX, AUX]), 30, 36, 40, true);
+            row(v, g, ['f.2', 'f.4', 'f.6', 'f.96', 'f.98'], ['2', '4', '6', '96', '98'], PH_COL.concat([AUX, AUX]), 30, 36, 210, false);
+            var ticks = []; for (var x = 1; x <= 16; x++) ticks.push(x);
+            v.kIr = new W.Knob(g, {
+                cx: 62, cy: 146, r: 20, min: 1, max: 16, value: c.st.Ir, step: 0.1, wheel: 0.5, keyStep: 0.1, sweep: 270,
+                ticks: ticks, major: 5, fmt: null, label: 'Corriente de ajuste del relé térmico (A)',
+                onChange: function (q) { c.st.Ir = q; self.hooks.changed(false); }
+            });
+            v.irTxt = txt(g, 62, 180, '', 'ap-sub', { 'text-anchor': 'middle' });
+            el('rect', { x: 118, y: 120, width: 72, height: 22, rx: 4, 'class': 'ap-win' }, g);
+            v.flag = el('rect', { x: 121, y: 123, width: 66, height: 16, rx: 3, 'class': 'ap-flag' }, g);
+            v.flagT = txt(g, 154, 135, '', 'ap-flag-t sm', { 'text-anchor': 'middle' });
+            var rb = btn(g, function (k) {
+                if (k !== 'down' && k !== 'key') return;
+                if (!c.st.tripped) return;
+                if (c.st.th > 75) { self.hooks.toast('El relé térmico todavía está caliente: espera un poco para rearmarlo.', 'warn'); return; }
+                c.st.tripped = false; self.hooks.log(lab.label(c) + ' rearmado.'); self.hooks.changed(false);
+            }, 'Rearme (RESET) del relé térmico');
+            el('rect', { x: 124, y: 148, width: 60, height: 26, rx: 13, 'class': 'ap-reset' }, rb);
+            txt(rb, 154, 166, 'RESET', 'ap-reset-t', { 'text-anchor': 'middle' });
+        },
+        kt: function (v, g, c) {
+            var self = this;
+            body(g, 170, 250, 'KT', null); txt(g, 156, 112, 'a la conexión', 'ap-sub', { 'text-anchor': 'end' });
+            row(v, g, ['kt.A1', 'kt.15'], ['A1', '15'], [COILC, AUX], 46, 78, 40, true);
+            row(v, g, ['kt.A2', 'kt.16', 'kt.18'], ['A2', '16', '18'], [COILC, AUX, AUX], 46, 39, 210, false);
+            var ticks = []; for (var x = 0; x <= 30; x += 1) ticks.push(x);
+            new W.Knob(g, {
+                cx: 60, cy: 146, r: 20, min: 0.5, max: 30, value: c.st.T, step: 0.5, wheel: 1, keyStep: 0.5, sweep: 270,
+                ticks: ticks, major: 10, fmt: null, label: 'Tiempo del temporizador (s)',
+                onChange: function (q) { c.st.T = q; self.hooks.changed(false); }
+            });
+            v.tTxt = txt(g, 60, 180, '', 'ap-sub', { 'text-anchor': 'middle' });
+            v.ledU = v.lamp(g, 124, 128, 'green'); txt(g, 124, 148, 'U', 'ap-sub', { 'text-anchor': 'middle' });
+            v.ledR = v.lamp(g, 124, 160, 'amber'); txt(g, 124, 180, 'R', 'ap-sub', { 'text-anchor': 'middle' });
+        },
+        pbno: function (v, g, c) { pushDraw.call(this, v, g, c, 'pbg', 'I', ['pb.13', 'pb.14'], ['13', '14'], 'MARCHA', false); },
+        pbnc: function (v, g, c) { pushDraw.call(this, v, g, c, 'pbr', 'O', ['pb.11', 'pb.12'], ['11', '12'], 'PARO', false); },
+        estop: function (v, g, c) { pushDraw.call(this, v, g, c, 'pbe', '', ['pb.11', 'pb.12'], ['11', '12'], 'EMERGENCIA', true); },
+        sel: function (v, g, c) {
+            var self = this;
+            el('rect', { x: 0, y: 0, width: 110, height: 170, rx: 10, 'class': 'ap-box' }, g);
+            txt(g, 55, 20, 'SELECTOR', 'ap-head', { 'text-anchor': 'middle' });
+            txt(g, 30, 48, '0', 'ap-sel-t', { 'text-anchor': 'middle' }); txt(g, 80, 48, '1', 'ap-sel-t', { 'text-anchor': 'middle' });
+            var b = btn(g, function (k) {
+                if (k !== 'down' && k !== 'key') return;
+                c.st.pressed = !c.st.pressed; self.hooks.changed(false);
+            }, 'Selector de dos posiciones (contacto NA 13-14 cerrado en 1)');
+            el('circle', { cx: 55, cy: 74, r: 28, 'class': 'ap-sel-ring' }, b);
+            v.selH = el('rect', { x: 49, y: 50, width: 12, height: 48, rx: 6, 'class': 'ap-sel-h' }, b);
+            row(v, g, ['pb.13', 'pb.14'], ['13', '14'], [AUX, AUX], 30, 50, 130, false);
+        },
+        lamp: function (v, g, c) {
+            var col = (VEM.Free.LAMPS.filter(function (l) { return l.id === c.model; })[0] || {}).c || '#4dff88';
+            el('rect', { x: 0, y: 0, width: 110, height: 170, rx: 10, 'class': 'ap-box' }, g);
+            txt(g, 55, 20, 'PILOTO 230 V', 'ap-head', { 'text-anchor': 'middle' });
+            el('circle', { cx: 55, cy: 70, r: 30, 'class': 'ap-lamp-ring' }, g);
+            v.dome = el('circle', { cx: 55, cy: 70, r: 23, fill: col, 'class': 'ap-dome' }, g);
+            v.domeCol = col;
+            row(v, g, ['h.X1', 'h.X2'], ['X1', 'X2'], [AUX, AUX], 30, 50, 130, false);
+        }
+    };
+    function pushDraw(v, g, c, cls, sym, ids, lbls, name, latch) {
+        var self = this;
+        el('rect', { x: 0, y: 0, width: 110, height: 170, rx: 10, 'class': 'ap-box' }, g);
+        txt(g, 55, 20, name, 'ap-head', { 'text-anchor': 'middle' });
+        var b = btn(g, function (k) {
+            if (latch) {
+                if (k !== 'down' && k !== 'key') return;
+                c.st.pressed = !c.st.pressed;
+                self.hooks.log(self.lab.label(c) + (c.st.pressed ? ' pulsada (enclavada).' : ' desenclavada.'), c.st.pressed ? 'warn' : '');
+                self.hooks.changed(false);
+                return;
+            }
+            if (k === 'down') c.st.pressed = true;
+            else if (k === 'key') { c.st.pressed = true; setTimeout(function () { c.st.pressed = false; }, 250); }
+            else c.st.pressed = false;
+        }, latch ? 'Seta de emergencia: pulsa para enclavarla y otra vez para soltarla (contacto NC 11-12)' : 'Pulsador ' + (cls === 'pbg' ? 'NA 13-14: cierra mientras se mantiene pulsado' : 'NC 11-12: abre mientras se mantiene pulsado'));
+        el('circle', { cx: 55, cy: 72, r: latch ? 36 : 30, 'class': 'ap-pb-ring' + (latch ? ' e' : '') }, b);
+        v.pbHead = el('g', null, b);
+        el('circle', { cx: 55, cy: 70, r: latch ? 28 : 22, 'class': 'ap-pb ' + cls }, v.pbHead);
+        if (sym) txt(v.pbHead, 55, 77, sym, 'ap-pb-t', { 'text-anchor': 'middle' });
+        row(v, g, ids, lbls, [AUX, AUX], 30, 50, 130, false);
+    }
+    function frameApar(v, c, r) {
+        var st = c.st;
+        switch (c.type) {
+            case 'ctl': {
+                var on = st.on, sw = v.sw;
+                sw.lever.setAttribute('transform', on ? 'translate(35,0)' : '');
+                sw.lever.setAttribute('class', 'rocker-lever' + (on ? ' on' : ''));
+                sw.t.setAttribute('transform', on ? 'translate(35,0)' : ''); sw.t.textContent = on ? 'I' : '0';
+                v.lampOn.setAttribute('class', 'lamp green' + (on ? ' lit' : ''));
+                break;
+            }
+            case 'qm':
+                v.qLev.setAttribute('y', st.on ? 120 : 148); v.qLev.setAttribute('class', 'brk-lever' + (st.on ? ' on' : ''));
+                v.qTxt.setAttribute('y', st.on ? 138 : 166); v.qTxt.textContent = st.on ? 'I' : 'O';
+                v.inTxt.textContent = 'C' + st.In + ' · ' + st.In + ' A';
+                break;
+            case 'km':
+                v.flag.setAttribute('class', 'ap-flag' + (st.closed ? ' on' : ''));
+                v.flagT.textContent = st.closed ? 'I' : 'O';
+                break;
+            case 'fr':
+                v.flag.setAttribute('class', 'ap-flag' + (st.tripped ? ' trip' : ''));
+                v.flagT.textContent = st.tripped ? 'DISPARADO' : 'OK';
+                v.irTxt.textContent = 'Ir = ' + f(st.Ir, 1) + ' A';
+                break;
+            case 'kt':
+                v.ledU.setAttribute('class', 'lamp green' + (st.t > 0 ? ' lit' : ''));
+                v.ledR.setAttribute('class', 'lamp amber' + (st.out ? ' lit' : ''));
+                v.tTxt.textContent = st.t > 0 && !st.out ? f(st.t, 1) + ' / ' + f(st.T, 1) + ' s' : 't = ' + f(st.T, 1) + ' s';
+                break;
+            case 'pbno': case 'pbnc': case 'estop':
+                v.pbHead.setAttribute('transform', st.pressed ? 'translate(55,71) scale(0.9) translate(-55,-71)' : '');
+                v.pbHead.setAttribute('class', st.pressed ? 'pressed' : '');
+                break;
+            case 'sel': v.selH.setAttribute('transform', st.pressed ? 'rotate(45 55 74)' : 'rotate(-45 55 74)'); break;
+            case 'lamp': {
+                var b = r ? Math.max(0, Math.min(1.2, r.b)) : 0, k = Math.min(1, b * b);
+                v.dome.setAttribute('opacity', (0.18 + 0.82 * k).toFixed(2));
+                v.dome.style.filter = k > 0.2 ? 'drop-shadow(0 0 ' + (4 + 12 * k).toFixed(1) + 'px ' + v.domeCol + ')' : '';
+                break;
+            }
+        }
+    }
+
     /* ================= Plantillas ================= */
     FreeBench.TEMPLATES = [
         { id: 'empty', name: 'Lienzo vacío', data: { comps: [], cables: [], couplings: [] } },
+        {
+            id: 'dol', name: 'Arranque directo con contactor y relé térmico (sin cablear)', data: {
+                comps: [
+                    { id: 'c1', type: 'ac3', x: 0, y: 0 }, { id: 'c2', type: 'ctl', x: 460, y: 0 }, { id: 'c3', type: 'qm', x: 670, y: 0 },
+                    { id: 'c4', type: 'km', x: 850, y: 0 }, { id: 'c5', type: 'fr', x: 1130, y: 0 },
+                    { id: 'c6', type: 'pbnc', x: 460, y: 320 }, { id: 'c7', type: 'pbno', x: 600, y: 320 }, { id: 'c8', type: 'lamp', model: 'G', x: 740, y: 320 }, { id: 'c9', type: 'lamp', model: 'R', x: 880, y: 320 },
+                    { id: 'c10', type: 'am', x: 1380, y: 0 }, { id: 'c11', type: 'im', model: 'M2', x: 1020, y: 320 }, { id: 'c12', type: 'dyno', x: 1560, y: 220 }
+                ], cables: [], couplings: [{ a: 'c11', b: 'c12' }]
+            }
+        },
+        {
+            id: 'yd', name: 'Arranque estrella-triángulo automático (sin cablear)', data: {
+                comps: [
+                    { id: 'c1', type: 'ac3', x: 0, y: 0 }, { id: 'c2', type: 'ctl', x: 460, y: 0 }, { id: 'c3', type: 'qm', x: 670, y: 0 }, { id: 'c4', type: 'fr', x: 850, y: 0 },
+                    { id: 'c5', type: 'km', x: 0, y: 400 }, { id: 'c6', type: 'km', x: 280, y: 400 }, { id: 'c7', type: 'km', x: 560, y: 400 }, { id: 'c8', type: 'kt', x: 840, y: 400 },
+                    { id: 'c9', type: 'pbnc', x: 1100, y: 0 }, { id: 'c10', type: 'pbno', x: 1240, y: 0 }, { id: 'c11', type: 'am', x: 1380, y: 0 },
+                    { id: 'c12', type: 'im', model: 'M1', x: 1050, y: 420 }, { id: 'c13', type: 'dyno', x: 1600, y: 340 }
+                ], cables: [], couplings: [{ a: 'c12', b: 'c13' }]
+            }
+        },
         {
             id: 'ccalt', name: 'Motor de c.c. → alternador → red (sin cablear)', data: {
                 comps: [

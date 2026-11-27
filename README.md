@@ -8,7 +8,6 @@ Bancos de ensayo que se cablean y se manejan como los de un laboratorio real,<br
 con simulación física de las máquinas, protecciones que disparan e instrumentos de verdad.
 
 **[▶ Abrir el laboratorio](https://alejandrovidalbralo.github.io/vemlab/)** &nbsp;·&nbsp;
-[Guiones de prácticas](#-guiones-de-prácticas) &nbsp;·&nbsp;
 [Cómo funciona](#-cómo-funciona-la-simulación) &nbsp;·&nbsp;
 [Licencia](#-licencia)
 
@@ -27,7 +26,7 @@ con simulación física de las máquinas, protecciones que disparan e instrument
 
 VEMLAB es un laboratorio virtual pensado para clases de máquinas eléctricas. No hay
 asistentes ni respuestas automáticas: el alumno tiene delante **la fuente, los
-instrumentos, los cables y la máquina**, y el guion de la práctica le dice qué hacer.
+instrumentos, los cables y la máquina**, como en el laboratorio.
 Si se equivoca, pasa lo mismo que en el laboratorio: salta el magnetotérmico, actúan
 las sondas térmicas, la máquina se embala o los aparatos marcan lecturas absurdas.
 
@@ -49,13 +48,17 @@ las sondas térmicas, la máquina se embala o los aparatos marcan lecturas absur
 <img src="docs/img/libre.webp" alt="Modo libre: motor de corriente continua que mueve un alternador acoplado a la red" width="900">
 
 Un lienzo para montar **lo que quieras** con todo el material del laboratorio:
-fuentes, instrumentos, cargas, transformadores, máquinas y dinamómetros, y
+fuentes, instrumentos, cargas, transformadores, máquinas, dinamómetros y
+**aparamenta de maniobra y protección** (contactores, relés térmicos,
+magnetotérmicos, temporizadores, pulsadores, setas de emergencia y pilotos), y
 **acoplar máquinas por el eje**. Por ejemplo:
 
 - un motor de c.c. que mueve un alternador que se sincroniza con la red;
 - un motor asíncrono que arrastra una dinamo con carga;
 - dos máquinas asíncronas acopladas, una como motor y otra como generador;
-- un transformador que alimenta una carga o un motor.
+- un transformador que alimenta una carga o un motor;
+- un arranque directo con autoenclavamiento o un estrella-triángulo automático con
+  contactores y temporizador.
 
 Incluye plantillas de ejemplo y permite **exportar e importar montajes** (`.json`):
 un docente prepara la práctica y la reparte a sus alumnos.
@@ -76,15 +79,6 @@ un docente prepara la práctica y la reparte a sus alumnos.
   de par o de velocidad.
 
 <br clear="right">
-
-## 📄 Guiones de prácticas
-
-Los guiones se entregan aparte, como en el laboratorio real:
-
-- [Máquina asíncrona trifásica](docs/guion_maquina_asincrona.pdf)
-- [Transformador trifásico](docs/guion_transformador.pdf)
-
-Las fuentes LaTeX están en [`docs/`](docs/) para adaptarlas a cada asignatura.
 
 ## 🧮 Cómo funciona la simulación
 
@@ -127,7 +121,7 @@ js/free-ui.js       lienzo del modo libre
 js/scope.js         osciloscopio / registrador
 js/widgets.js       displays de 7 segmentos, mandos y pulsadores
 js/app.js           aplicación: estado, bucle de simulación, ventanas
-docs/               guiones de prácticas y capturas
+docs/img/           capturas
 ```
 
 ## 📜 Licencia

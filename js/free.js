@@ -83,8 +83,41 @@
         dcm: { name: 'Máquina de corriente continua', short: 'Máq. c.c.', cat: 'Máquinas', terms: ['d.A1', 'd.A2', 'd.D1', 'd.D2', 'd.E1', 'd.E2'], machine: true, catalog: function () { return VEM.DC.catalog; } },
         sm: { name: 'Máquina síncrona', short: 'Síncrona', cat: 'Máquinas', terms: ['m.U1', 'm.V1', 'm.W1', 'm.U2', 'm.V2', 'm.W2', 'm.F1', 'm.F2'], machine: true, catalog: function () { return VEM.Sync.catalog; } },
         tr: { name: 'Transformador trifásico', short: 'Transformador', cat: 'Máquinas', terms: TR_T, catalog: function () { return VEM.Trafo.catalog; } },
-        dyno: { name: 'Dinamómetro', short: 'Dinamómetro', cat: 'Máquinas', terms: [], machine: true }
+        dyno: { name: 'Dinamómetro', short: 'Dinamómetro', cat: 'Máquinas', terms: [], machine: true },
+        /* ---- aparamenta de maniobra, protección y mando ---- */
+        ctl: { name: 'Fuente de mando 230 V ~', short: 'Mando 230 V', cat: 'Fuentes', terms: ['cs.L', 'cs.N'], source: true },
+        qm: { name: 'Interruptor magnetotérmico tripolar', short: 'Magnetotérm.', cat: 'Aparamenta', terms: ['q.1', 'q.2', 'q.3', 'q.4', 'q.5', 'q.6'] },
+        km: { name: 'Contactor (3 polos + NA 13-14 + NC 21-22)', short: 'Contactor', cat: 'Aparamenta', terms: ['k.1', 'k.2', 'k.3', 'k.4', 'k.5', 'k.6', 'k.13', 'k.14', 'k.21', 'k.22', 'k.A1', 'k.A2'] },
+        fr: { name: 'Relé térmico', short: 'Relé térmico', cat: 'Aparamenta', terms: ['f.1', 'f.2', 'f.3', 'f.4', 'f.5', 'f.6', 'f.95', 'f.96', 'f.97', 'f.98'] },
+        kt: { name: 'Temporizador a la conexión', short: 'Temporizador', cat: 'Aparamenta', terms: ['kt.A1', 'kt.A2', 'kt.15', 'kt.16', 'kt.18'] },
+        pbno: { name: 'Pulsador de marcha (NA)', short: 'Pulsador NA', cat: 'Aparamenta', terms: ['pb.13', 'pb.14'] },
+        pbnc: { name: 'Pulsador de paro (NC)', short: 'Pulsador NC', cat: 'Aparamenta', terms: ['pb.11', 'pb.12'] },
+        estop: { name: 'Seta de emergencia (NC)', short: 'Seta emerg.', cat: 'Aparamenta', terms: ['pb.11', 'pb.12'] },
+        sel: { name: 'Selector 0–1 (NA)', short: 'Selector', cat: 'Aparamenta', terms: ['pb.13', 'pb.14'] },
+        lamp: { name: 'Piloto de señalización 230 V', short: 'Piloto', cat: 'Aparamenta', terms: ['h.X1', 'h.X2'], catalog: function () { return LAMPS; } }
     };
+    var LAMPS = [{ id: 'G', name: 'verde', c: '#4dff88' }, { id: 'R', name: 'rojo', c: '#ff4040' }, { id: 'Y', name: 'ámbar', c: '#ffc233' }, { id: 'W', name: 'blanco', c: '#f4f4f4' }];
+    var G_CONTACT = 100;                       /* contacto cerrado: 10 mΩ */
+    var COIL = { U: 230, G: 8 / (230 * 230), pick: 0.8, drop: 0.45 };   /* bobina de contactor 230 V ~, ≈ 8 VA */
+    var CTL = { U: 230, Z: C(0.4, 0.3), In: 2 };
+    /* Contactos cerrados de cada aparato según su estado */
+    function contacts(c) {
+        var st = c.st, out = [];
+        switch (c.type) {
+            case 'km':
+                if (st.closed) out.push(['k.1', 'k.2'], ['k.3', 'k.4'], ['k.5', 'k.6'], ['k.13', 'k.14']); else out.push(['k.21', 'k.22']);
+                break;
+            case 'kt': out.push(st.out ? ['kt.15', 'kt.18'] : ['kt.15', 'kt.16']); break;
+            case 'fr':
+                out.push(['f.1', 'f.2'], ['f.3', 'f.4'], ['f.5', 'f.6']);
+                out.push(st.tripped ? ['f.97', 'f.98'] : ['f.95', 'f.96']);
+                break;
+            case 'qm': if (st.on) out.push(['q.1', 'q.2'], ['q.3', 'q.4'], ['q.5', 'q.6']); break;
+            case 'pbno': case 'sel': if (st.pressed) out.push(['pb.13', 'pb.14']); break;
+            case 'pbnc': case 'estop': if (!st.pressed) out.push(['pb.11', 'pb.12']); break;
+        }
+        return out;
+    }
 
     /* ---------------- Datos de los modelos ---------------- */
     var DCSRC = { A: { p: 'ps.A+', n: 'ps.A-', R: 0.15, Umax: 250, Ith: 25, Imag: 80, name: 'inducido' }, F: { p: 'ps.F+', n: 'ps.F-', R: 1.0, Umax: 250, Ith: 3, Imag: 10, name: 'excitación' } };
@@ -244,6 +277,16 @@
                 if (s.dyno) { st.dyno.Tset = num(s.dyno.Tset, 0, -st.dyno.Tmax, st.dyno.Tmax); st.dyno.nset = num(s.dyno.nset, 0, 0, 3600); }
                 break;
         }
+        switch (t) {
+            case 'ctl': st.on = false; st.trip = null; st.th = 0; break;
+            case 'qm': st.on = !!s.on; st.In = [2, 4, 6, 10, 16].indexOf(+s.In) >= 0 ? +s.In : 10; st.th = 0; break;
+            case 'km': st.closed = false; st.tc = 0; st.to = 0; break;
+            case 'kt': st.T = num(s.T, 5, 0.5, 30); st.t = 0; st.out = false; break;
+            case 'fr': st.Ir = num(s.Ir, 8, 1, 16); st.th = 0; st.tripped = false; break;
+            case 'pbno': case 'pbnc': st.pressed = false; break;
+            case 'estop': case 'sel': st.pressed = !!s.pressed; break;
+            case 'lamp': c.model = (LAMPS.filter(function (l) { return l.id === c.model; })[0] || LAMPS[0]).id; st.b = 0; break;
+        }
         if (TYPES[t].machine) st.w = 0;
     };
     /* Estado persistente de un componente */
@@ -257,6 +300,10 @@
             case 'rh': o.st.rh = st.rh; break;
             case 'syncp': o.st.lampMode = st.lampMode; break;
             case 'dyno': o.st.dyno = st.dyno.state(); o.st.Tmax = st.dyno.Tmax; break;
+            case 'qm': o.st.In = st.In; break;
+            case 'kt': o.st.T = st.T; break;
+            case 'fr': o.st.Ir = st.Ir; break;
+            case 'estop': case 'sel': o.st.pressed = st.pressed; break;
         }
         return o;
     };
@@ -288,6 +335,7 @@
             TYPES[c.type].terms.forEach(function (t) { terms.push(c.id + ':' + t); });
             /* el neutro de cada fuente trifásica es la tierra común de la red */
             if (c.type === 'ac3') { defs[c.id + 'N'] = [c.id + ':src.N', 'GND']; br[c.id + 'N'] = 1; }
+            if (c.type === 'ctl') { defs[c.id + 'N'] = [c.id + ':cs.N', 'GND']; br[c.id + 'N'] = 1; }
             if (c.type === 'syncp' && c.st.q2) [1, 2, 3].forEach(function (i) { defs[c.id + 'Q' + i] = [c.id + ':sy.L' + i, c.id + ':sy.G' + i]; br[c.id + 'Q' + i] = 1; });
         });
         this.topo = Circuit.topology(this.cables, br, terms, defs, 'GND');
@@ -316,6 +364,14 @@
             case 'tr': return [TR_T];
             case 'dcm': return [['d.A1', 'd.A2'], ['d.D1', 'd.D2'], ['d.E1', 'd.E2']];
             case 'sm': return [['m.U1', 'm.V1', 'm.W1', 'm.U2', 'm.V2', 'm.W2'], ['m.F1', 'm.F2']];
+            case 'ctl': return [['cs.L', 'cs.N']];
+            case 'qm': return [['q.1', 'q.2'], ['q.3', 'q.4'], ['q.5', 'q.6']];
+            case 'km': return [['k.1', 'k.2'], ['k.3', 'k.4'], ['k.5', 'k.6'], ['k.13', 'k.14'], ['k.21', 'k.22'], ['k.A1', 'k.A2']];
+            case 'fr': return [['f.1', 'f.2'], ['f.3', 'f.4'], ['f.5', 'f.6'], ['f.95', 'f.96'], ['f.97', 'f.98']];
+            case 'kt': return [['kt.A1', 'kt.A2'], ['kt.15', 'kt.16', 'kt.18']];
+            case 'pbno': case 'sel': return [['pb.13', 'pb.14']];
+            case 'pbnc': case 'estop': return [['pb.11', 'pb.12']];
+            case 'lamp': return [['h.X1', 'h.X2']];
         }
         return [];
     }
@@ -387,7 +443,7 @@
     /* ================= Componentes de frecuencia ================= */
     FreeLab.prototype.components = function () {
         var K = [{ id: 'dc', f: 0, rot: C(1, 0) }];
-        if (this.comps.some(function (c) { return c.type === 'ac3' && c.st.on && c.st.variac > 0; })) K.push({ id: 'grid', f: 50, rot: C(1, 0) });
+        if (this.comps.some(function (c) { return (c.type === 'ac3' && c.st.on && c.st.variac > 0) || (c.type === 'ctl' && c.st.on); })) K.push({ id: 'grid', f: 50, rot: C(1, 0) });
         var self = this;
         this.comps.forEach(function (c) {
             if (c.type !== 'sm') return;
@@ -414,7 +470,19 @@
         function N(c, t) { return self.N(c, t); }
         this.comps.forEach(function (c) {
             var st = c.st, P = c.P;
+            /* contactos cerrados de la aparamenta (en todos los componentes de frecuencia y en el óhmetro) */
+            contacts(c).forEach(function (q) { net.adm(N(c, q[0]), N(c, q[1]), C(G_CONTACT)); });
             switch (c.type) {
+                case 'ctl': {
+                    if (!st.on) break;
+                    var Yc = dc ? C(1 / CTL.Z.re) : Cx.inv(C(CTL.Z.re, CTL.Z.im * k));
+                    net.adm(N(c, 'cs.L'), N(c, 'cs.N'), Yc);
+                    if (K.id === 'grid') net.inj(N(c, 'cs.L'), Cx.mul(C(CTL.U), Yc));
+                    break;
+                }
+                case 'km': net.adm(N(c, 'k.A1'), N(c, 'k.A2'), C(COIL.G)); break;
+                case 'kt': net.adm(N(c, 'kt.A1'), N(c, 'kt.A2'), C(2 / (230 * 230))); break;
+                case 'lamp': net.adm(N(c, 'h.X1'), N(c, 'h.X2'), C(2.5 / (230 * 230))); break;
                 case 'ac3': {
                     if (!st.on) break;
                     var Y = dc ? C(1 / ZS.re) : Cx.inv(C(ZS.re, ZS.im * k)), Eph = st.variac * 440 / Math.sqrt(3);
@@ -560,10 +628,55 @@
     /* Corrientes, pares, saturación y protecciones tras resolver */
     FreeLab.prototype.post = function (S) {
         var self = this, trip = null, K = S.K;
+        /* tensión eficaz total (alterna + continua) entre dos bornes y corriente por un contacto cerrado */
+        function vtot(c, a, b) {
+            var na = self.N(c, a), nb = self.N(c, b), dcv = S.V.dc(na).re - S.V.dc(nb).re;
+            return Math.sqrt(Math.pow(rms(self.acList(S, na, nb)), 2) + dcv * dcv);
+        }
+        function itot(c, a, b) { return vtot(c, a, b) * G_CONTACT; }
         this.comps.forEach(function (c) {
             var st = c.st, P = c.P;
             function N(t) { return self.N(c, t); }
             switch (c.type) {
+                case 'ctl': {
+                    if (!st.on) { st.I = 0; st.th *= Math.exp(-H / 30); break; }
+                    var Vl = S.V.grid ? S.V.grid(N('cs.L')) : C(0), Yc = Cx.inv(CTL.Z);
+                    st.I = Math.sqrt(Cx.abs2(Cx.mul(Cx.sub(C(CTL.U), Vl), Yc)) + Math.pow(S.V.dc(N('cs.L')).re / CTL.Z.re, 2));
+                    if (st.I > 10 * CTL.In) { st.on = false; self.trip = 'Disparo del magnetotérmico de ' + self.label(c) + ': cortocircuito en el circuito de mando (' + Math.round(st.I) + ' A).'; self.emit('trip', self.trip); break; }
+                    var xc = st.I / CTL.In;
+                    if (xc > 1.05) st.th += (xc * xc - 1) * H; else st.th *= Math.exp(-H / 30);
+                    if (st.th > 30) { st.th = 0; st.on = false; self.trip = 'Disparo térmico de ' + self.label(c) + ': el circuito de mando consume más de ' + CTL.In + ' A.'; self.emit('trip', self.trip); }
+                    break;
+                }
+                case 'km': {
+                    var Vk = st.Vc = vtot(c, 'k.A1', 'k.A2');
+                    if (!st.closed) { st.to = 0; if (Vk > COIL.pick * COIL.U) { st.tc += H; if (st.tc >= 0.02) { st.closed = true; st.tc = 0; } } else st.tc = 0; }
+                    else { st.tc = 0; if (Vk < COIL.drop * COIL.U) { st.to += H; if (st.to >= 0.012) { st.closed = false; st.to = 0; } } else st.to = 0; }
+                    break;
+                }
+                case 'kt': {
+                    var Vt2 = vtot(c, 'kt.A1', 'kt.A2');
+                    if (Vt2 > 0.7 * 230) { st.t += H; st.out = st.t >= st.T; } else { st.t = 0; st.out = false; }
+                    break;
+                }
+                case 'lamp': st.b = vtot(c, 'h.X1', 'h.X2') / 230; break;
+                case 'fr': {
+                    var If = Math.max(itot(c, 'f.1', 'f.2'), itot(c, 'f.3', 'f.4'), itot(c, 'f.5', 'f.6'));
+                    st.I = If;
+                    var xr = If / st.Ir;
+                    if (xr > 1.05) st.th += (xr * xr - 1) * H; else st.th *= Math.exp(-H / 90);
+                    if (!st.tripped && st.th > 150) { st.tripped = true; self.emit('warn', 'Ha disparado el ' + self.label(c) + ': ' + VEM.fmtN(If, 1) + ' A con el ajuste en ' + VEM.fmtN(st.Ir, 1) + ' A. Abre su contacto 95-96 y cierra el 97-98.'); }
+                    break;
+                }
+                case 'qm': {
+                    if (!st.on) { st.I = 0; st.th *= Math.exp(-H / 30); break; }
+                    var Iq = st.I = Math.max(itot(c, 'q.1', 'q.2'), itot(c, 'q.3', 'q.4'), itot(c, 'q.5', 'q.6'));
+                    if (Iq > 8 * st.In) { st.on = false; st.th = 0; self.emit('trip', 'Disparo magnético de ' + self.label(c) + ' (C' + st.In + '): ' + Math.round(Iq) + ' A.'); break; }
+                    var xq = Iq / st.In;
+                    if (xq > 1.13) st.th += (xq * xq - 1) * H; else st.th *= Math.exp(-H / 60);
+                    if (st.th > 60) { st.on = false; st.th = 0; self.emit('trip', 'Disparo térmico de ' + self.label(c) + ' (C' + st.In + '): sobrecarga mantenida de ' + VEM.fmtN(Iq, 1) + ' A.'); }
+                    break;
+                }
                 case 'ac3': {
                     if (!st.on) { st.I = [0, 0, 0]; st.thSrc *= Math.exp(-H / 30); break; }
                     var Ys = Cx.inv(ZS), Eph = st.variac * 440 / Math.sqrt(3);
@@ -843,6 +956,12 @@
                     if (c.type === 'im') r.Iw = st.Iw || [0, 0, 0];
                     break;
                 case 'tr': r.thermal = Math.min(1, st.th / 180); r.Iw = st.Iw || []; break;
+                case 'ctl': r.on = st.on; r.I = st.I || 0; break;
+                case 'km': r.closed = st.closed; r.Vc = st.Vc || 0; break;
+                case 'kt': r.out = st.out; r.t = st.t; break;
+                case 'fr': r.tripped = st.tripped; r.I = st.I || 0; r.th = Math.min(1, st.th / 150); break;
+                case 'qm': r.on = st.on; r.I = st.I || 0; break;
+                case 'lamp': r.b = st.b || 0; break;
                 case 'dyno': {
                     var T = self.dynoTorque(c);
                     r.n = st.w / RPM; r.T = T; r.Pm = T * Math.abs(st.w);
@@ -878,7 +997,7 @@
         return true;
     };
 
-    VEM.Free = { TYPES: TYPES, RLC: RLC, RDC: RDC, RH: RH, DCSRC: DCSRC, EXSRC: EXSRC, clusters: clusters, rms: rms };
+    VEM.Free = { LAMPS: LAMPS, TYPES: TYPES, RLC: RLC, RDC: RDC, RH: RH, DCSRC: DCSRC, EXSRC: EXSRC, clusters: clusters, rms: rms };
     VEM.FreeLab = FreeLab;
     if (typeof module !== 'undefined' && module.exports) module.exports = VEM;
 })(typeof window !== 'undefined' ? window : globalThis);
