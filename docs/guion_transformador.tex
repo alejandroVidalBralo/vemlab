@@ -1,0 +1,324 @@
+% Guion de la práctica: ensayos del transformador trifásico (VEMLAB)
+% Compilar con:  tectonic guion_transformador.tex
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{fontspec}
+\usepackage[spanish,es-noshorthands,es-tabla]{babel}
+\usepackage[a4paper,margin=2.2cm,headheight=14pt]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs,tabularx,array,multirow}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{calc,positioning}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{tcolorbox}
+\usepackage{hyperref}
+
+\definecolor{acento}{HTML}{1F5FA8}
+\definecolor{aviso}{HTML}{B23A1E}
+\hypersetup{colorlinks=true,urlcolor=acento,linkcolor=acento}
+
+\titleformat{\section}{\sffamily\large\bfseries\color{acento}}{\thesection.}{0.6em}{}
+\titleformat{\subsection}{\sffamily\normalsize\bfseries}{\thesubsection.}{0.5em}{}
+\titlespacing*{\section}{0pt}{14pt}{6pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\sffamily\small Máquinas Eléctricas · Laboratorio}
+\rhead{\sffamily\small Práctica: transformador trifásico}
+\cfoot{\sffamily\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\setlist{itemsep=2pt,topsep=4pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+
+\newtcolorbox{seguridad}{colback=aviso!6,colframe=aviso,boxrule=0.6pt,arc=2pt,
+  left=6pt,right=6pt,top=4pt,bottom=4pt,fonttitle=\sffamily\bfseries,title=Seguridad}
+\newtcolorbox{nota}{colback=acento!5,colframe=acento!70,boxrule=0.5pt,arc=2pt,
+  left=6pt,right=6pt,top=4pt,bottom=4pt}
+
+\renewcommand{\arraystretch}{1.35}
+\newcolumntype{C}{>{\centering\arraybackslash}X}
+
+\begin{document}
+
+% ---------------------------------------------------------------- portada
+\begin{center}
+  {\sffamily\small\color{acento} LABORATORIO VIRTUAL VEMLAB}\\[4pt]
+  {\sffamily\LARGE\bfseries Ensayos del transformador trifásico}\\[4pt]
+  {\sffamily\large Conexiones e índice horario · Vacío, cortocircuito y carga}
+\end{center}
+
+\vspace{6pt}
+\begin{tabularx}{\textwidth}{|l|X|l|X|}
+  \hline
+  \textsf{Alumno/a} & & \textsf{Grupo} & \\ \hline
+  \textsf{Fecha} & & \textsf{Transformador ensayado} & \\ \hline
+\end{tabularx}
+
+% ---------------------------------------------------------------- 1
+\section{Objetivos}
+\begin{itemize}
+  \item Interpretar la placa de características de un transformador con todos los extremos de devanado accesibles y elegir la conexión adecuada a la red.
+  \item Montar distintas conexiones (Yy, Yd, Dy, Dd, Yz, Dz) y determinar experimentalmente su índice horario.
+  \item Realizar los ensayos de vacío y de cortocircuito y obtener el circuito equivalente por fase.
+  \item Realizar el ensayo en carga y estudiar la caída de tensión y el rendimiento con cargas resistivas, inductivas y capacitivas.
+\end{itemize}
+
+% ---------------------------------------------------------------- 2
+\section{Material del puesto de trabajo}
+Abre VEMLAB, elige \textbf{Transformador trifásico} y, en la barra superior, el transformador que te indique el profesor.
+
+\begin{tabularx}{\textwidth}{@{}>{\bfseries}l X@{}}
+  \toprule
+  Fuente trifásica regulable & Autotransformador 0–440\,V entre fases (ajuste fino de 0,5\,V), 50\,Hz, 16\,A. Interruptor Q1 (C16), pilotos y seta de emergencia. Bornes L1, L2, L3 y N. \\
+  Vatímetros W1 y W2 & Digitales, 20\,A / 600\,V, con signo. El asterisco marca el borne de polaridad. \\
+  Amperímetro y voltímetro & 20\,A y 600\,V en alterna. \\
+  Polímetro & Óhmetro. Solo \emph{sin tensión}. \\
+  Transformador & Núcleo de tres columnas. En cada columna, un devanado de alta tensión (1U1–1U2) y el de baja tensión partido en dos mitades (2U1–2U2 y 2U3–2U4). El punto • marca el principio de cada devanado. Indicador de temperatura de los devanados. \\
+  Banco de cargas & Estrella con neutro accesible. Escalones de R (0,5\,kW), L (0,5\,kvar) y C (0,25\,kvar), valores a 230\,V entre fases. Interruptor CARGA. \\
+  Osciloscopio / registrador & Tendencia de las medidas y ondas $u$–$i$, con cursores A–B. \\
+  \bottomrule
+\end{tabularx}
+
+\begin{seguridad}
+  \begin{itemize}[leftmargin=12pt]
+    \item Monta y modifica el circuito \textbf{con Q1 abierto}. Antes de cerrarlo, lleva el autotransformador a \textbf{0\,V}.
+    \item En el ensayo de cortocircuito la tensión necesaria es pequeña: sube \emph{muy despacio} con los botones $-$/$+$. Un cortocircuito en BT a tensión nominal hace disparar Q1.
+    \item Ningún devanado debe superar su tensión asignada. Comprueba la conexión antes de dar tensión.
+  \end{itemize}
+\end{seguridad}
+
+% ---------------------------------------------------------------- 3
+\section{Placa de características y elección de la conexión}
+La placa indica la tensión y la intensidad asignadas \emph{de cada devanado} (o de cada mitad de BT).
+
+\begin{tabularx}{\textwidth}{|X|X|X|X|X|X|}
+  \hline
+  $S_n$ (kVA) & $U$ devanado AT (V) & $I$ devanado AT (A) & $U$ mitad BT (V) & $I$ mitad BT (A) & $u_{cc}$ (\%) \\ \hline
+  & & & & & \\[6pt] \hline
+\end{tabularx}
+
+La red es de \textbf{400\,V entre fases}. Completa la tabla con las tensiones de línea asignadas para cada conexión, con las dos mitades de BT en serie (o en zigzag) y la relación de transformación $m = U_{1}/U_{2}$ (tensiones de línea):
+
+\begin{tabularx}{\textwidth}{|l|C|C|C|C|}
+  \hline
+  Conexión & $U_1$ línea (V) & $U_2$ línea (V) & $m$ & ¿Se puede alimentar a 400\,V? \\ \hline
+  Yy & & & & \\ \hline
+  Yd & & & & \\ \hline
+  Dy & & & & \\ \hline
+  Dd & & & & \\ \hline
+  Yz & & & & \\ \hline
+\end{tabularx}
+
+\begin{nota}
+  Estrella: $U_\text{línea} = \sqrt3\,U_\text{devanado}$. Triángulo: $U_\text{línea} = U_\text{devanado}$. Zigzag: cada fase es la suma de dos mitades de columnas distintas desfasadas 120°, así que $U_\text{fase} = \sqrt3\,U_\text{mitad}$ y $U_\text{línea} = 3\,U_\text{mitad}$.
+\end{nota}
+
+% ---------------------------------------------------------------- 4
+\section{Resistencia de los devanados}
+Con Q1 abierto y el transformador sin cables de conexión, mide con el polímetro:
+
+\begin{tabularx}{\textwidth}{|C|C|C|C|C|C|}
+  \hline
+  $R_{1U1\text{–}1U2}$ & $R_{1V1\text{–}1V2}$ & $R_{1W1\text{–}1W2}$ & $R_{2U1\text{–}2U2}$ & $R_{2U3\text{–}2U4}$ & $R_\text{AT–BT}$ \\ \hline
+  & & & & & \\[6pt] \hline
+\end{tabularx}
+
+¿Qué indica la medida entre un borne de AT y uno de BT?
+
+% ---------------------------------------------------------------- 5
+\section{Conexiones e índice horario}
+El índice horario expresa el desfase entre las tensiones homólogas de AT y BT en múltiplos de 30°, como las horas de un reloj. La aguja larga es la tensión de AT, que apunta a las 12, y la corta es la de BT.
+
+\subsection*{Método del voltímetro}
+\begin{enumerate}
+  \item Monta la conexión (cables de puente en la placa de bornes). Alimenta la AT por 1U1, 1V1 y 1W1, a una tensión reducida y conocida (por ejemplo, 100\,V entre fases).
+  \item Une con un cable los bornes de línea homólogos 1U1 y el principio de la fase U de BT (2U1). Así los dos sistemas de tensiones tienen un punto común.
+  \item Mide con el voltímetro las tensiones de la tabla y dibuja a escala los triángulos de tensiones de AT y de BT con el vértice común. El ángulo entre $\vec U_{1U1\text{–}1V1}$ y $\vec U_{2U1\text{–}2V1}$ da el índice.
+\end{enumerate}
+
+\begin{tabularx}{\textwidth}{|l|C|C|C|C|C|C|C|}
+  \hline
+  Conexión montada & $U_{1U\text{–}1V}$ & $U_{2U\text{–}2V}$ & $U_{1V\text{–}2V}$ & $U_{1V\text{–}2W}$ & $U_{1W\text{–}2V}$ & $U_{1W\text{–}2W}$ & Índice \\ \hline
+  & & & & & & & \\[5pt] \hline
+  & & & & & & & \\[5pt] \hline
+  & & & & & & & \\[5pt] \hline
+  & & & & & & & \\[5pt] \hline
+\end{tabularx}
+
+Haz al menos cuatro conexiones distintas, entre ellas una Yz. Para cada una, dibuja el esquema de conexión con los bornes que has unido y comprueba que el índice medido coincide con el que se deduce del esquema. Prueba después a cambiar el orden de los puentes del triángulo, o a tomar los devanados de BT al revés, y observa cómo cambia el índice.
+
+\begin{nota}
+  Las dos mitades de una columna de BT se ponen en serie uniendo el final de la primera con el principio de la segunda (2U2–2U3). En zigzag, cada fase de BT se forma con la primera mitad de una columna en serie con la segunda mitad de otra columna, conectada al revés.
+\end{nota}
+
+% ---------------------------------------------------------------- 6
+\section{Montaje para los ensayos}
+Elige la conexión que permite alimentar a 400\,V con los devanados a su tensión asignada y la BT con las mitades en serie. Los vatímetros van en montaje Aron en el lado de AT: el circuito amperimétrico de W1 en L1 y el de W2 en L2, y los voltimétricos entre su fase y L3.
+
+\begin{center}
+\begin{tikzpicture}[line width=0.7pt, font=\sffamily\small,
+    inst/.style={draw, circle, minimum size=7mm, inner sep=0pt, fill=white},
+    bob/.style={draw, rectangle, minimum width=11mm, minimum height=4mm, fill=white},
+    vbob/.style={draw, rectangle, minimum width=4mm, minimum height=6.5mm, fill=white}]
+  \foreach \n/\y in {L1/2.4, L2/1.2, L3/0} {
+    \node[left] at (0,\y) {\n};
+    \draw (0,\y) -- (9.4,\y);
+    \fill (0,\y) circle (1.6pt);
+  }
+  \node[inst] at (1.3,2.4) {A};
+  \node[bob] (w1i) at (3.2,2.4) {};
+  \node[above=3pt] at (w1i.north) {W1};
+  \node at ($(w1i.west)+(-0.12,0.22)$) {*};
+  \draw (4.3,2.4) -- (4.3,0);
+  \node[vbob] at (4.3,1.8) {};
+  \fill (4.3,2.4) circle (1.6pt); \fill (4.3,0) circle (1.6pt);
+  \node at (4.58,2.2) {*};
+  \draw[densely dashed, gray] (w1i.east) -- (4.3,2.12);
+  \node[bob] (w2i) at (5.6,1.2) {};
+  \node[above=3pt] at (w2i.north) {W2};
+  \node at ($(w2i.west)+(-0.12,0.22)$) {*};
+  \draw (6.7,1.2) -- (6.7,0);
+  \node[vbob] at (6.7,0.6) {};
+  \fill (6.7,1.2) circle (1.6pt); \fill (6.7,0) circle (1.6pt);
+  \node at (6.98,1.0) {*};
+  \draw[densely dashed, gray] (w2i.east) -- (6.7,0.92);
+  \draw (8.1,2.4) -- (8.1,2.15); \draw (8.1,1.45) -- (8.1,1.2);
+  \node[inst] at (8.1,1.8) {V};
+  \fill (8.1,2.4) circle (1.6pt); \fill (8.1,1.2) circle (1.6pt);
+  % transformador
+  \draw[fill=white] (9.4,-0.3) rectangle (11.8,2.7);
+  \draw (10.6,-0.3) -- (10.6,2.7);
+  \node[above] at (10.0,2.7) {AT}; \node[above] at (11.2,2.7) {BT};
+  \foreach \y/\p in {2.4/U,1.2/V,0/W} {
+    \node[font=\sffamily\scriptsize] at (10.0,\y) {1\p1};
+    \node[font=\sffamily\scriptsize] at (11.2,\y) {2\p1};
+    \draw (11.8,\y) -- (12.4,\y);
+  }
+  \node[draw, rounded corners, align=center, font=\sffamily\scriptsize, fill=white] at (13.5,1.2) {abierto (vacío)\\cortocircuito\\banco de cargas};
+\end{tikzpicture}
+\end{center}
+
+\begin{nota}
+  Usa siempre tensiones de línea y corrientes de línea en las medidas. En los cálculos, trabaja \textbf{por fase de la estrella equivalente}: $U_f = U/\sqrt3$ y $P_f = P/3$, sea cual sea la conexión real.
+\end{nota}
+
+% ---------------------------------------------------------------- 7
+\section{Ensayo de vacío}
+\subsection*{Procedimiento}
+\begin{enumerate}
+  \item BT en vacío, con las mitades en serie y la conexión elegida, sin cargas. Autotransformador a 0\,V y cierra Q1.
+  \item Sube hasta $\approx 1{,}1\,U_{1n}$ y toma medidas bajando la tensión. En cada punto mide también la tensión de línea de BT $U_{20}$: lleva el voltímetro a la BT o haz dos lecturas.
+\end{enumerate}
+
+\begin{tabularx}{\textwidth}{|C|C|C|C|C|C|C|C|}
+  \hline
+  $U_{1}$ (V) & $U_{20}$ (V) & $I_0$ (A) & $W_1$ (W) & $W_2$ (W) & $P_0$ (W) & $\cos\varphi_0$ & $m = U_1/U_{20}$ \\ \hline
+   & & & & & & & \\[5pt] \hline
+   & & & & & & & \\[5pt] \hline
+   & & & & & & & \\[5pt] \hline
+   & & & & & & & \\[5pt] \hline
+   & & & & & & & \\[5pt] \hline
+   & & & & & & & \\[5pt] \hline
+   & & & & & & & \\[5pt] \hline
+\end{tabularx}
+
+\subsection*{Cálculos (a tensión asignada)}
+\[
+  P_{Fe} \approx P_0, \qquad
+  i_0 = \frac{I_0}{I_{1n}}\cdot 100, \qquad
+  R_{Fe} = \frac{U_{1n}^2}{P_0}, \qquad
+  X_\mu = \frac{U_{1n}/\sqrt3}{I_0\sin\varphi_0}
+\]
+(parámetros por fase de la estrella equivalente, referidos a AT). Representa $P_0$ e $I_0$ frente a $U_1$ y comenta la forma de $I_0$ por encima de la tensión asignada.
+
+% ---------------------------------------------------------------- 8
+\section{Ensayo de cortocircuito}
+\begin{seguridad}
+  Une con cables los tres bornes de línea de BT (2U1, 2V1 y 2W1, con la conexión de BT hecha). Comprueba que el autotransformador está a \textbf{0\,V} antes de cerrar Q1. La tensión de cortocircuito es solo un pequeño porcentaje de la asignada.
+\end{seguridad}
+
+\begin{enumerate}
+  \item Cierra Q1 y sube la tensión con los botones $+$ hasta que la corriente de línea de AT sea la asignada, $I_{1cc} = I_{1n}$. Toma varios puntos por el camino.
+\end{enumerate}
+
+\begin{tabularx}{\textwidth}{|C|C|C|C|C|C|}
+  \hline
+  $U_{1cc}$ (V) & $I_{1cc}$ (A) & $W_1$ (W) & $W_2$ (W) & $P_{cc}$ (W) & $\cos\varphi_{cc}$ \\ \hline
+   & & & & & \\[5pt] \hline
+   & & & & & \\[5pt] \hline
+   & & & & & \\[5pt] \hline
+   & & & & & \\[5pt] \hline
+   & & & & & \\[5pt] \hline
+\end{tabularx}
+
+\subsection*{Cálculos (en el punto $I_{1cc} = I_{1n}$)}
+\[
+  \varepsilon_{cc} = \frac{U_{1cc}}{U_{1n}}\cdot 100, \quad
+  R_{cc} = \frac{P_{cc}}{3 I_{1n}^2}, \quad
+  Z_{cc} = \frac{U_{1cc}/\sqrt3}{I_{1n}}, \quad
+  X_{cc} = \sqrt{Z_{cc}^2 - R_{cc}^2},
+\]
+\[
+  \varepsilon_{Rcc} = \varepsilon_{cc}\cos\varphi_{cc}, \qquad \varepsilon_{Xcc} = \varepsilon_{cc}\sin\varphi_{cc}.
+\]
+Si la corriente final no es exactamente $I_{1n}$, refiere $P_{cc}$ a la corriente asignada ($P_{cc} \propto I^2$) y $U_{1cc}$ también ($U_{cc} \propto I$). Compara $\varepsilon_{cc}$ con el $u_{cc}$ de la placa.
+
+% ---------------------------------------------------------------- 9
+\section{Ensayo en carga}
+Conecta la BT al banco de cargas: 2U1, 2V1 y 2W1 a L1, L2 y L3, y el neutro de BT a N si la BT está en estrella. Mantén los vatímetros en AT, y lleva el amperímetro y el voltímetro a la BT para medir $I_2$ y $U_2$. Ajusta $U_1 = U_{1n}$ y comprueba que se mantiene en cada punto.
+
+\begin{tabularx}{\textwidth}{|l|C|C|C|C|C|C|C|}
+  \hline
+  Carga (escalones) & $U_2$ (V) & $I_2$ (A) & $W_1$ (W) & $W_2$ (W) & $P_1$ (W) & $\varepsilon$ (\%) & $\eta$ (\%) \\ \hline
+  R = 0 (vacío) & & & & & & & \\ \hline
+  R = 2 & & & & & & & \\ \hline
+  R = 4 & & & & & & & \\ \hline
+  R = 6 & & & & & & & \\ \hline
+  R = 8 & & & & & & & \\ \hline
+  R = 10 & & & & & & & \\ \hline
+  L = 6 & & & & & & & \\ \hline
+  R = 6, L = 4 & & & & & & & \\ \hline
+  C = 10 & & & & & & & \\ \hline
+\end{tabularx}
+
+\subsection*{Cálculos}
+\[
+  \varepsilon = \frac{U_{20} - U_2}{U_{20}}\cdot 100, \qquad
+  \text{carga resistiva: } P_2 = \sqrt3\,U_2 I_2,\ \ \eta = \frac{P_2}{P_1}, \qquad
+  C = \frac{I_2}{I_{2n}}.
+\]
+\begin{enumerate}
+  \item Compara la caída de tensión medida con la aproximación de Kapp: $\varepsilon \approx C\,(\varepsilon_{Rcc}\cos\varphi_2 + \varepsilon_{Xcc}\sin\varphi_2)$, con $\sin\varphi_2 < 0$ para cargas capacitivas.
+  \item Compara el rendimiento medido con carga resistiva con el calculado a partir de los ensayos: $\eta = \dfrac{C S_n\cos\varphi_2}{C S_n\cos\varphi_2 + P_0 + C^2 P_{cc}}$. Representa ambos frente a $C$.
+\end{enumerate}
+
+% ---------------------------------------------------------------- 10
+\section{Resultados: circuito equivalente por fase (referido a AT)}
+\begin{tabularx}{\textwidth}{|C|C|C|C|C|C|}
+  \hline
+  $R_{cc}$ (Ω) & $X_{cc}$ (Ω) & $R_{Fe}$ (Ω) & $X_\mu$ (Ω) & $\varepsilon_{Rcc}$ (\%) & $\varepsilon_{Xcc}$ (\%) \\ \hline
+  & & & & & \\[8pt] \hline
+\end{tabularx}
+
+% ---------------------------------------------------------------- 11
+\section{Cuestiones}
+\begin{enumerate}
+  \item ¿Por qué $P_0$ se identifica con las pérdidas en el hierro y $P_{cc}$ con las pérdidas en el cobre a corriente asignada?
+  \item Calcula la corriente de cortocircuito permanente a tensión asignada, $I_{cc} = I_{1n}\cdot 100/\varepsilon_{cc}$. ¿Por qué dispara Q1 si cortocircuitas la BT a 400\,V?
+  \item ¿Con qué índice de carga se obtiene el rendimiento máximo? ($C_{opt} = \sqrt{P_0/P_{cc}}$). ¿Cuál es ese rendimiento?
+  \item Explica por qué la tensión de BT sube con carga capacitiva.
+  \item Con la BT en estrella y el neutro conectado, alimenta una carga solo entre L1 y N, con la AT en estrella sin neutro (Yyn). Mide las tres tensiones fase–neutro de BT y repite con la AT en triángulo (Dyn), alimentando a la tensión de línea que corresponda a esa conexión. ¿Qué ocurre y por qué? ¿Qué papel tiene el núcleo de tres columnas?
+  \item ¿Qué condiciones deben cumplir dos transformadores para poder acoplarse en paralelo? ¿Podrían acoplarse dos de las conexiones que has montado?
+\end{enumerate}
+
+\vfill
+\begin{nota}
+  \textbf{Entrega.} Informe con las tablas completas, los esquemas de conexión y los diagramas de tensiones del índice horario, las gráficas pedidas, los cálculos justificados y las respuestas a las cuestiones.
+\end{nota}
+
+\end{document}

@@ -1,0 +1,17 @@
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# LaTeX (solo se versionan .tex y .pdf)
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
+# Editores
+.vscode/
+.idea/
